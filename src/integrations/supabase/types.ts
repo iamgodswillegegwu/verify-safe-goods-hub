@@ -9,7 +9,407 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      categories: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      manufacturers: {
+        Row: {
+          address: string
+          city: string
+          company_name: string
+          country: string
+          created_at: string | null
+          description: string
+          email: string
+          id: string
+          is_approved: boolean | null
+          phone: string
+          postal_code: string | null
+          registration_number: string
+          state: string
+          updated_at: string | null
+          user_id: string | null
+          website: string | null
+        }
+        Insert: {
+          address: string
+          city: string
+          company_name: string
+          country: string
+          created_at?: string | null
+          description: string
+          email: string
+          id?: string
+          is_approved?: boolean | null
+          phone: string
+          postal_code?: string | null
+          registration_number: string
+          state: string
+          updated_at?: string | null
+          user_id?: string | null
+          website?: string | null
+        }
+        Update: {
+          address?: string
+          city?: string
+          company_name?: string
+          country?: string
+          created_at?: string | null
+          description?: string
+          email?: string
+          id?: string
+          is_approved?: boolean | null
+          phone?: string
+          postal_code?: string | null
+          registration_number?: string
+          state?: string
+          updated_at?: string | null
+          user_id?: string | null
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manufacturers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_reports: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          product_id: string | null
+          reason: string
+          status: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          product_id?: string | null
+          reason: string
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          product_id?: string | null
+          reason?: string
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_reports_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_reports_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          allergens: string[] | null
+          batch_number: string
+          category_id: string | null
+          certification_documents: string[] | null
+          certification_number: string | null
+          city: string | null
+          country: string | null
+          created_at: string | null
+          description: string
+          expiry_date: string
+          id: string
+          ingredients: string
+          manufacturer_id: string | null
+          manufacturing_date: string
+          name: string
+          nutri_score: string | null
+          nutrition_facts: Json | null
+          state: string | null
+          status: Database["public"]["Enums"]["product_status"] | null
+          updated_at: string | null
+        }
+        Insert: {
+          allergens?: string[] | null
+          batch_number: string
+          category_id?: string | null
+          certification_documents?: string[] | null
+          certification_number?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string | null
+          description: string
+          expiry_date: string
+          id?: string
+          ingredients: string
+          manufacturer_id?: string | null
+          manufacturing_date: string
+          name: string
+          nutri_score?: string | null
+          nutrition_facts?: Json | null
+          state?: string | null
+          status?: Database["public"]["Enums"]["product_status"] | null
+          updated_at?: string | null
+        }
+        Update: {
+          allergens?: string[] | null
+          batch_number?: string
+          category_id?: string | null
+          certification_documents?: string[] | null
+          certification_number?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string | null
+          description?: string
+          expiry_date?: string
+          id?: string
+          ingredients?: string
+          manufacturer_id?: string | null
+          manufacturing_date?: string
+          name?: string
+          nutri_score?: string | null
+          nutrition_facts?: Json | null
+          state?: string | null
+          status?: Database["public"]["Enums"]["product_status"] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_manufacturer_id_fkey"
+            columns: ["manufacturer_id"]
+            isOneToOne: false
+            referencedRelation: "manufacturers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string
+          first_name: string | null
+          id: string
+          last_name: string | null
+          phone: string | null
+          role: Database["public"]["Enums"]["user_role"] | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          first_name?: string | null
+          id: string
+          last_name?: string | null
+          phone?: string | null
+          role?: Database["public"]["Enums"]["user_role"] | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          phone?: string | null
+          role?: Database["public"]["Enums"]["user_role"] | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      subscription_plans: {
+        Row: {
+          created_at: string | null
+          features: string[]
+          id: string
+          name: string
+          price: number
+          scan_limit: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          features: string[]
+          id?: string
+          name: string
+          price: number
+          scan_limit?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          features?: string[]
+          id?: string
+          name?: string
+          price?: number
+          scan_limit?: number | null
+        }
+        Relationships: []
+      }
+      user_favorites: {
+        Row: {
+          created_at: string | null
+          id: string
+          product_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          product_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          product_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_favorites_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_subscriptions: {
+        Row: {
+          created_at: string | null
+          ends_at: string | null
+          id: string
+          is_active: boolean | null
+          plan_id: string | null
+          starts_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          ends_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          plan_id?: string | null
+          starts_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          ends_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          plan_id?: string | null
+          starts_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      verifications: {
+        Row: {
+          created_at: string | null
+          id: string
+          product_id: string | null
+          result: Database["public"]["Enums"]["verification_result"]
+          search_query: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          product_id?: string | null
+          result: Database["public"]["Enums"]["verification_result"]
+          search_query?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          product_id?: string | null
+          result?: Database["public"]["Enums"]["verification_result"]
+          search_query?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verifications_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -18,7 +418,9 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      product_status: "pending" | "under_review" | "approved" | "rejected"
+      user_role: "consumer" | "manufacturer" | "admin"
+      verification_result: "verified" | "not_found" | "counterfeit"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -133,6 +535,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      product_status: ["pending", "under_review", "approved", "rejected"],
+      user_role: ["consumer", "manufacturer", "admin"],
+      verification_result: ["verified", "not_found", "counterfeit"],
+    },
   },
 } as const

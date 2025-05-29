@@ -1,8 +1,16 @@
 
 import { supabase, Product, Verification } from '@/lib/supabase';
 
-export const searchProducts = async (query: string): Promise<Product[]> => {
-  const { data, error } = await supabase
+export interface SearchFilters {
+  category?: string;
+  country?: string;
+  state?: string;
+  city?: string;
+  nutriScore?: string[];
+}
+
+export const searchProducts = async (query: string, filters?: SearchFilters): Promise<Product[]> => {
+  let queryBuilder = supabase
     .from('products')
     .select(`
       *,
@@ -10,8 +18,26 @@ export const searchProducts = async (query: string): Promise<Product[]> => {
       category:categories(*)
     `)
     .eq('status', 'approved')
-    .ilike('name', `%${query}%`)
-    .limit(10);
+    .ilike('name', `%${query}%`);
+
+  // Apply filters
+  if (filters?.category) {
+    queryBuilder = queryBuilder.eq('category.name', filters.category);
+  }
+  if (filters?.country) {
+    queryBuilder = queryBuilder.eq('country', filters.country);
+  }
+  if (filters?.state) {
+    queryBuilder = queryBuilder.eq('state', filters.state);
+  }
+  if (filters?.city) {
+    queryBuilder = queryBuilder.eq('city', filters.city);
+  }
+  if (filters?.nutriScore && filters.nutriScore.length > 0) {
+    queryBuilder = queryBuilder.in('nutri_score', filters.nutriScore);
+  }
+
+  const { data, error } = await queryBuilder.limit(10);
 
   if (error) {
     console.error('Error searching products:', error);
@@ -21,9 +47,9 @@ export const searchProducts = async (query: string): Promise<Product[]> => {
   return data || [];
 };
 
-export const verifyProduct = async (query: string, userId?: string): Promise<Verification> => {
-  // First, search for the product
-  const products = await searchProducts(query);
+export const verifyProduct = async (query: string, userId?: string, filters?: SearchFilters): Promise<Verification> => {
+  // First, search for the product with filters
+  const products = await searchProducts(query, filters);
   
   let result: 'verified' | 'not_found' | 'counterfeit' = 'not_found';
   let productId: string | undefined;
@@ -79,8 +105,8 @@ export const verifyProduct = async (query: string, userId?: string): Promise<Ver
   return data;
 };
 
-export const getSimilarProducts = async (query: string): Promise<Product[]> => {
-  const { data, error } = await supabase
+export const getSimilarProducts = async (query: string, filters?: SearchFilters): Promise<Product[]> => {
+  let queryBuilder = supabase
     .from('products')
     .select(`
       *,
@@ -88,8 +114,26 @@ export const getSimilarProducts = async (query: string): Promise<Product[]> => {
       category:categories(*)
     `)
     .eq('status', 'approved')
-    .or(`name.ilike.%${query}%,description.ilike.%${query}%`)
-    .limit(5);
+    .or(`name.ilike.%${query}%,description.ilike.%${query}%`);
+
+  // Apply same filters as search
+  if (filters?.category) {
+    queryBuilder = queryBuilder.eq('category.name', filters.category);
+  }
+  if (filters?.country) {
+    queryBuilder = queryBuilder.eq('country', filters.country);
+  }
+  if (filters?.state) {
+    queryBuilder = queryBuilder.eq('state', filters.state);
+  }
+  if (filters?.city) {
+    queryBuilder = queryBuilder.eq('city', filters.city);
+  }
+  if (filters?.nutriScore && filters.nutriScore.length > 0) {
+    queryBuilder = queryBuilder.in('nutri_score', filters.nutriScore);
+  }
+
+  const { data, error } = await queryBuilder.limit(5);
 
   if (error) {
     console.error('Error fetching similar products:', error);
@@ -120,4 +164,87 @@ export const getVerificationHistory = async (userId: string): Promise<Verificati
   }
 
   return data || [];
+};
+
+// New favorite functionality
+export const addToFavorites = async (userId: string, productId: string) => {
+  const { error } = await supabase
+    .from('user_favorites')
+    .insert({ user_id: userId, product_id: productId });
+
+  if (error) {
+    console.error('Error adding to favorites:', error);
+    throw error;
+  }
+};
+
+export const removeFromFavorites = async (userId: string, productId: string) => {
+  const { error } = await supabase
+    .from('user_favorites')
+    .delete()
+    .eq('user_id', userId)
+    .eq('product_id', productId);
+
+  if (error) {
+    console.error('Error removing from favorites:', error);
+    throw error;
+  }
+};
+
+export const getUserFavorites = async (userId: string): Promise<Product[]> => {
+  const { data, error } = await supabase
+    .from('user_favorites')
+    .select(`
+      product:products(
+        *,
+        manufacturer:manufacturers(*),
+        category:categories(*)
+      )
+    `)
+    .eq('user_id', userId);
+
+  if (error) {
+    console.error('Error fetching favorites:', error);
+    return [];
+  }
+
+  return data?.map(item => item.product).filter(Boolean) || [];
+};
+
+export const isProductFavorited = async (userId: string, productId: string): Promise<boolean> => {
+  const { data, error } = await supabase
+    .from('user_favorites')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('product_id', productId)
+    .single();
+
+  if (error && error.code !== 'PGRST116') {
+    console.error('Error checking favorite status:', error);
+    return false;
+  }
+
+  return !!data;
+};
+
+// Product reporting functionality
+export const reportProduct = async (
+  userId: string, 
+  productId: string, 
+  reason: string, 
+  description?: string
+) => {
+  const { error } = await supabase
+    .from('product_reports')
+    .insert({
+      user_id: userId,
+      product_id: productId,
+      reason,
+      description
+    });
+
+  if (error) {
+    console.error('Error reporting product:', error);
+    throw error;
+  }
 };

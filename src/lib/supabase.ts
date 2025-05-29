@@ -1,16 +1,13 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
-}
+// Use the direct Supabase configuration since this project is connected
+const supabaseUrl = 'https://flyvlvtvgvfybtnuntsd.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZseXZsdnR2Z3ZmeWJ0bnVudHNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1NDQ5MTgsImV4cCI6MjA2NDEyMDkxOH0.iGlfXJUM6EZUwE_s0ipn6LR4ZkgK3d2hojRs5m_xo-g';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Types for our database
+// Types for our database - updated with new fields
 export interface Profile {
   id: string;
   email: string;
@@ -33,6 +30,7 @@ export interface Manufacturer {
   country: string;
   state: string;
   city: string;
+  postal_code?: string;
   website?: string;
   description: string;
   is_approved: boolean;
@@ -52,6 +50,13 @@ export interface Product {
   batch_number: string;
   certification_number?: string;
   status: 'pending' | 'under_review' | 'approved' | 'rejected';
+  nutri_score?: 'A' | 'B' | 'C' | 'D' | 'E';
+  country?: string;
+  state?: string;
+  city?: string;
+  allergens?: string[];
+  nutrition_facts?: any;
+  certification_documents?: string[];
   created_at: string;
   updated_at: string;
   manufacturer?: Manufacturer;
@@ -93,4 +98,23 @@ export interface UserSubscription {
   is_active: boolean;
   created_at: string;
   plan?: SubscriptionPlan;
+}
+
+export interface UserFavorite {
+  id: string;
+  user_id: string;
+  product_id: string;
+  created_at: string;
+  product?: Product;
+}
+
+export interface ProductReport {
+  id: string;
+  user_id?: string;
+  product_id: string;
+  reason: string;
+  description?: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
 }
