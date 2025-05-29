@@ -15,7 +15,7 @@ import FeatureCards from '@/components/FeatureCards';
 import SearchFilters from '@/components/SearchFilters';
 import PersonalizedRecommendations from '@/components/PersonalizedRecommendations';
 import SmartSearchSuggestions from '@/components/SmartSearchSuggestions';
-import { SearchFilters as SearchFiltersType } from '@/services/productService';
+import AdvancedSearchInterface from '@/components/AdvancedSearchInterface';
 
 const Index = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -24,6 +24,7 @@ const Index = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -116,104 +117,131 @@ const Index = () => {
           </div>
 
           <div className="max-w-6xl mx-auto">
-            <div className="grid lg:grid-cols-3 gap-6">
-              {/* Main Search and Verification */}
-              <div className="lg:col-span-2">
-                <Card className="border-2 border-blue-100 shadow-lg">
-                  <CardHeader className="bg-gradient-to-r from-blue-50 to-sky-50">
-                    <CardTitle className="text-center text-slate-800">Product Verification</CardTitle>
-                    <CardDescription className="text-center">
-                      Choose your preferred method to verify products
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-6">
-                    <div className="grid md:grid-cols-2 gap-6 mb-6">
-                      {/* Search Input */}
-                      <div className="space-y-4">
-                        <h3 className="font-semibold text-slate-700 flex items-center gap-2">
-                          <Search className="h-5 w-5 text-blue-600" />
-                          Search by Name
-                        </h3>
-                        <div className="flex gap-2">
-                          <Input
-                            placeholder="Enter product name..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="flex-1 border-blue-200 focus:border-blue-400"
-                            onKeyPress={(e) => e.key === 'Enter' && !isLoading && handleSearch()}
-                            onFocus={() => setShowSuggestions(true)}
+            {/* Search Mode Toggle */}
+            <div className="flex justify-center mb-6">
+              <div className="bg-white rounded-lg p-1 border border-gray-200">
+                <Button
+                  variant={!showAdvancedSearch ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setShowAdvancedSearch(false)}
+                  className={!showAdvancedSearch ? "bg-blue-600 text-white" : ""}
+                >
+                  Quick Verification
+                </Button>
+                <Button
+                  variant={showAdvancedSearch ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setShowAdvancedSearch(true)}
+                  className={showAdvancedSearch ? "bg-blue-600 text-white" : ""}
+                >
+                  Advanced Search
+                </Button>
+              </div>
+            </div>
+
+            {!showAdvancedSearch ? (
+              <div className="grid lg:grid-cols-3 gap-6">
+                {/* Main Search and Verification */}
+                <div className="lg:col-span-2">
+                  <Card className="border-2 border-blue-100 shadow-lg">
+                    <CardHeader className="bg-gradient-to-r from-blue-50 to-sky-50">
+                      <CardTitle className="text-center text-slate-800">Product Verification</CardTitle>
+                      <CardDescription className="text-center">
+                        Choose your preferred method to verify products
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                      <div className="grid md:grid-cols-2 gap-6 mb-6">
+                        {/* Search Input */}
+                        <div className="space-y-4">
+                          <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+                            <Search className="h-5 w-5 text-blue-600" />
+                            Search by Name
+                          </h3>
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="Enter product name..."
+                              value={searchQuery}
+                              onChange={(e) => setSearchQuery(e.target.value)}
+                              className="flex-1 border-blue-200 focus:border-blue-400"
+                              onKeyPress={(e) => e.key === 'Enter' && !isLoading && handleSearch()}
+                              onFocus={() => setShowSuggestions(true)}
+                              disabled={isLoading}
+                            />
+                            <Button 
+                              onClick={handleSearch}
+                              className="bg-blue-600 hover:bg-blue-700 text-white"
+                              disabled={isLoading || !searchQuery.trim()}
+                            >
+                              {isLoading ? (
+                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                              ) : (
+                                <Search className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Camera Scanner */}
+                        <div className="space-y-4">
+                          <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+                            <Camera className="h-5 w-5 text-green-600" />
+                            Scan Product
+                          </h3>
+                          <Button
+                            onClick={() => setIsScanning(!isScanning)}
+                            variant="outline"
+                            className="w-full border-green-200 text-green-700 hover:bg-green-50"
                             disabled={isLoading}
-                          />
-                          <Button 
-                            onClick={handleSearch}
-                            className="bg-blue-600 hover:bg-blue-700 text-white"
-                            disabled={isLoading || !searchQuery.trim()}
                           >
-                            {isLoading ? (
-                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                            ) : (
-                              <Search className="h-4 w-4" />
-                            )}
+                            <Camera className="h-4 w-4 mr-2" />
+                            {isScanning ? 'Stop Scanner' : 'Start Scanner'}
                           </Button>
                         </div>
                       </div>
 
-                      {/* Camera Scanner */}
-                      <div className="space-y-4">
-                        <h3 className="font-semibold text-slate-700 flex items-center gap-2">
-                          <Camera className="h-5 w-5 text-green-600" />
-                          Scan Product
-                        </h3>
-                        <Button
-                          onClick={() => setIsScanning(!isScanning)}
-                          variant="outline"
-                          className="w-full border-green-200 text-green-700 hover:bg-green-50"
-                          disabled={isLoading}
-                        >
-                          <Camera className="h-4 w-4 mr-2" />
-                          {isScanning ? 'Stop Scanner' : 'Start Scanner'}
-                        </Button>
-                      </div>
-                    </div>
+                      {/* Advanced Filters */}
+                      <SearchFilters 
+                        filters={searchFilters}
+                        onFiltersChange={setSearchFilters}
+                      />
 
-                    {/* Advanced Filters */}
-                    <SearchFilters 
-                      filters={searchFilters}
-                      onFiltersChange={setSearchFilters}
+                      {/* Scanner Component */}
+                      {isScanning && (
+                        <div className="mt-6">
+                          <ProductScanner onResult={handleScanResult} />
+                        </div>
+                      )}
+
+                      {/* Verification Result */}
+                      {verificationResult && (
+                        <div className="mt-6">
+                          <EnhancedVerificationResult result={verificationResult} />
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Sidebar with Recommendations and Suggestions */}
+                <div className="space-y-6">
+                  {/* Smart Search Suggestions */}
+                  {showSuggestions && !verificationResult && (
+                    <SmartSearchSuggestions 
+                      onSuggestionClick={handleSuggestionClick}
                     />
-
-                    {/* Scanner Component */}
-                    {isScanning && (
-                      <div className="mt-6">
-                        <ProductScanner onResult={handleScanResult} />
-                      </div>
-                    )}
-
-                    {/* Verification Result */}
-                    {verificationResult && (
-                      <div className="mt-6">
-                        <EnhancedVerificationResult result={verificationResult} />
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                  )}
+                  
+                  {/* Personalized Recommendations */}
+                  {!showSuggestions && (
+                    <PersonalizedRecommendations limit={3} />
+                  )}
+                </div>
               </div>
-
-              {/* Sidebar with Recommendations and Suggestions */}
-              <div className="space-y-6">
-                {/* Smart Search Suggestions */}
-                {showSuggestions && !verificationResult && (
-                  <SmartSearchSuggestions 
-                    onSuggestionClick={handleSuggestionClick}
-                  />
-                )}
-                
-                {/* Personalized Recommendations */}
-                {!showSuggestions && (
-                  <PersonalizedRecommendations limit={3} />
-                )}
-              </div>
-            </div>
+            ) : (
+              /* Advanced Search Interface */
+              <AdvancedSearchInterface />
+            )}
           </div>
         </section>
 
