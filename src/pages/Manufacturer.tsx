@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Building2, Upload, FileText, Award, Mail, Phone, MapPin, Package, Plus, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -426,7 +425,11 @@ const Manufacturer = () => {
                       </div>
                     </div>
 
-                    <Button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white" size="lg">
+                    <Button 
+                      type="submit" 
+                      className="w-full bg-green-600 hover:bg-green-700 text-white font-medium" 
+                      size="lg"
+                    >
                       <Plus className="h-4 w-4 mr-2" />
                       Register Product
                     </Button>
