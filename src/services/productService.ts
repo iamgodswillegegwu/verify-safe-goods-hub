@@ -208,8 +208,11 @@ export const getUserFavorites = async (userId: string): Promise<Product[]> => {
     return [];
   }
 
-  // Fix the type issue by properly extracting the product data
-  return data?.map(item => item.product).filter((product): product is Product => product !== null) || [];
+  // Properly extract and type the product data
+  return data?.map(item => {
+    const product = item.product as any;
+    return product;
+  }).filter((product): product is Product => product !== null) || [];
 };
 
 export const isProductFavorited = async (userId: string, productId: string): Promise<boolean> => {
