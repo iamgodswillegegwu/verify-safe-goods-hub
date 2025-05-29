@@ -13,6 +13,30 @@ interface NutriScoreProps {
   score: string;
 }
 
+interface VerificationResultProps {
+  result: {
+    productName: string;
+    isVerified: boolean;
+    manufacturer: string;
+    registrationDate: string;
+    certificationNumber: string;
+    similarProducts?: Array<{
+      name: string;
+      manufacturer: string;
+      verified?: boolean;
+    }>;
+    product?: {
+      id: string;
+      nutri_score?: string;
+      country?: string;
+      state?: string;
+      city?: string;
+      allergens?: string[];
+      nutrition_facts?: Record<string, string | number>;
+    };
+  };
+}
+
 const NutriScoreBadge = ({ score }: NutriScoreProps) => {
   const getScoreColor = (score: string) => {
     switch (score) {
@@ -33,7 +57,7 @@ const NutriScoreBadge = ({ score }: NutriScoreProps) => {
   );
 };
 
-const EnhancedVerificationResult = ({ result }) => {
+const EnhancedVerificationResult = ({ result }: VerificationResultProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isFavorited, setIsFavorited] = useState(false);
@@ -233,10 +257,10 @@ const EnhancedVerificationResult = ({ result }) => {
                 <div>
                   <h4 className="font-semibold text-slate-700 mb-2">📊 Nutrition Facts (per serving)</h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-white p-3 rounded-lg border">
-                    {Object.entries(product.nutrition_facts as any).map(([key, value]) => (
+                    {Object.entries(product.nutrition_facts).map(([key, value]) => (
                       <div key={key} className="text-center">
                         <div className="text-xs text-slate-500 capitalize">{key}</div>
-                        <div className="font-semibold text-slate-700">{value}</div>
+                        <div className="font-semibold text-slate-700">{String(value)}</div>
                       </div>
                     ))}
                   </div>
