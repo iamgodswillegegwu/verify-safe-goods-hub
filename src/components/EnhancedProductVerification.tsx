@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +19,7 @@ import { verifyProduct } from '@/services/productService';
 import { validateProductExternal, ValidationResult } from '@/services/externalApiService';
 import EnhancedVerificationResult from './EnhancedVerificationResult';
 import ExternalValidationDialog from './ExternalValidationDialog';
+import AutoSuggestSearch from './AutoSuggestSearch';
 
 const EnhancedProductVerification = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -30,6 +30,27 @@ const EnhancedProductVerification = () => {
   const [externalLoading, setExternalLoading] = useState(false);
   const [showExternalDialog, setShowExternalDialog] = useState(false);
   const { toast } = useToast();
+
+  const handleProductSelect = (productName: string, isExternal = false, product = null) => {
+    setSearchQuery(productName);
+    
+    if (isExternal && product) {
+      // Set external result if it's from external APIs
+      setExternalResult({
+        found: true,
+        verified: product.verified,
+        confidence: 0.8,
+        source: product.source,
+        product,
+        alternatives: []
+      });
+      
+      toast({
+        title: "External Product Selected",
+        description: `Selected ${productName} from ${product.source.toUpperCase()}`,
+      });
+    }
+  };
 
   const handleInternalVerification = async () => {
     if (!searchQuery.trim()) {
@@ -133,12 +154,10 @@ const EnhancedProductVerification = () => {
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="search">Product Name</Label>
-              <Input
-                id="search"
-                placeholder="Enter product name..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+              <Label htmlFor="search">Product Name (with Auto-Suggest)</Label>
+              <AutoSuggestSearch
+                onProductSelect={handleProductSelect}
+                placeholder="Start typing for suggestions..."
                 className="mt-1"
               />
             </div>

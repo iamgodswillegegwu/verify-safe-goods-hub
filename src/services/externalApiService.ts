@@ -252,7 +252,7 @@ export const cacheExternalResult = async (
       .from('external_api_cache')
       .insert({
         query_hash: btoa(query),
-        result_data: result,
+        result_data: result as any, // Cast to bypass type checking
         expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
       });
 
@@ -283,4 +283,39 @@ export const getCachedResult = async (query: string): Promise<ValidationResult |
     console.error('Error getting cached result:', error);
     return null;
   }
+};
+
+// Quick search for auto-suggestions
+export const searchProductsQuick = async (query: string, limit: number = 5): Promise<ExternalProduct[]> => {
+  if (!query || query.length < 2) return [];
+
+  const results: ExternalProduct[] = [];
+
+  try {
+    // Search Open Food Facts for quick suggestions
+    const response = await fetch(
+      `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1&page_size=${limit}`
+    );
+    const data = await response.json();
+
+    if (data.products && data.products.length > 0) {
+      data.products.slice(0, limit).forEach((product: any) => {
+        results.push({
+          id: product.code || Date.now().toString(),
+          name: product.product_name || 'Unknown Product',
+          brand: product.brands,
+          category: 'food',
+          verified: true,
+          source: 'openfoodfacts',
+          data: product,
+          nutriScore: product.nutriscore_grade?.toUpperCase(),
+          imageUrl: product.image_url
+        });
+      });
+    }
+  } catch (error) {
+    console.error('Error in quick search:', error);
+  }
+
+  return results;
 };

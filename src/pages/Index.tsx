@@ -16,6 +16,7 @@ import SearchFilters from '@/components/SearchFilters';
 import PersonalizedRecommendations from '@/components/PersonalizedRecommendations';
 import SmartSearchSuggestions from '@/components/SmartSearchSuggestions';
 import AdvancedSearchInterface from '@/components/AdvancedSearchInterface';
+import AutoSuggestSearch from '@/components/AutoSuggestSearch';
 
 const Index = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -107,6 +108,34 @@ const Index = () => {
     }
   };
 
+  const handleProductSelect = async (productName: string, isExternal = false, product = null) => {
+    setSearchQuery(productName);
+    setShowSuggestions(false);
+    
+    if (isExternal && product) {
+      // If it's an external product, show it directly
+      const result = {
+        productName,
+        isVerified: product.verified,
+        manufacturer: product.brand || 'External Source',
+        registrationDate: 'N/A',
+        certificationNumber: 'External Product',
+        similarProducts: [],
+        product: null
+      };
+      
+      setVerificationResult(result);
+      
+      toast({
+        title: "External Product Found",
+        description: `Found ${productName} from ${product.source.toUpperCase()}`,
+      });
+    } else {
+      // Search internal database
+      await handleSearch();
+    }
+  };
+
   const handleSuggestionClick = (suggestion: string) => {
     setSearchQuery(suggestion);
     setShowSuggestions(false);
@@ -157,39 +186,34 @@ const Index = () => {
                   <CardHeader className="bg-gradient-to-r from-blue-50 to-sky-50">
                     <CardTitle className="text-center text-slate-800">Product Verification</CardTitle>
                     <CardDescription className="text-center">
-                      Choose your preferred method to verify products
+                      Search with real-time suggestions or scan products
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="p-6">
                     <div className="grid md:grid-cols-2 gap-6 mb-6">
-                      {/* Search Input */}
+                      {/* Auto-Suggest Search Input */}
                       <div className="space-y-4">
                         <h3 className="font-semibold text-slate-700 flex items-center gap-2">
                           <Search className="h-5 w-5 text-blue-600" />
                           Search by Name
                         </h3>
-                        <div className="flex gap-2">
-                          <Input
-                            placeholder="Enter product name..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="flex-1 border-blue-200 focus:border-blue-400"
-                            onKeyPress={(e) => e.key === 'Enter' && !isLoading && handleSearch()}
-                            onFocus={() => setShowSuggestions(true)}
-                            disabled={isLoading}
-                          />
-                          <Button 
-                            onClick={handleSearch}
-                            className="bg-blue-600 hover:bg-blue-700 text-white"
-                            disabled={isLoading || !searchQuery.trim()}
-                          >
-                            {isLoading ? (
-                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                            ) : (
-                              <Search className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </div>
+                        <AutoSuggestSearch
+                          onProductSelect={handleProductSelect}
+                          placeholder="Start typing to see suggestions..."
+                          className="w-full"
+                        />
+                        <Button 
+                          onClick={handleSearch}
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                          disabled={isLoading || !searchQuery.trim()}
+                        >
+                          {isLoading ? (
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
+                          ) : (
+                            <Search className="h-4 w-4 mr-2" />
+                          )}
+                          Search & Verify
+                        </Button>
                       </div>
 
                       {/* Camera Scanner */}
@@ -231,17 +255,6 @@ const Index = () => {
                     )}
                   </CardContent>
                 </Card>
-
-                {/* Smart Search Suggestions - Centered */}
-                {showSuggestions && !verificationResult && (
-                  <div className="flex justify-center">
-                    <div className="w-full max-w-md">
-                      <SmartSearchSuggestions 
-                        onSuggestionClick={handleSuggestionClick}
-                      />
-                    </div>
-                  </div>
-                )}
               </div>
             ) : (
               /* Advanced Search Interface */
