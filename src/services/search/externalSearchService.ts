@@ -1,104 +1,114 @@
 
-import { 
-  searchProductsQuick, 
+import { supabase } from '@/lib/supabase';
+import {
   ExternalProduct,
   APISource
 } from '../externalApiService';
-import { getCategoryMapping } from './categoryMapper';
 
-export interface ExternalSearchFilters {
+interface ExternalSearchFilters {
   category?: string;
-  nutriScore?: string[];
+  brand?: string;
+  verified?: boolean;
 }
 
-export const performExternalSearch = async (
+export const searchExternalProducts = async (
   query: string,
-  filters: ExternalSearchFilters = {},
-  limit: number = 10
+  filters: ExternalSearchFilters = {}
 ): Promise<ExternalProduct[]> => {
-  let externalProducts: ExternalProduct[] = [];
+  const results: ExternalProduct[] = [];
   
-  if (!query.trim()) {
-    return externalProducts;
-  }
-
-  const mappedCategory = filters.category ? getCategoryMapping(filters.category) : undefined;
-  
-  // Search external APIs based on category
-  if (!mappedCategory || mappedCategory === 'food') {
-    const foodResults = await searchProductsQuick(query, Math.ceil(limit / 3));
-    externalProducts.push(...foodResults);
-  }
-  
-  if (!mappedCategory || ['cosmetics', 'personal_care'].includes(mappedCategory)) {
-    // For cosmetics/personal care, we'll simulate results since APIs are limited
-    const cosmeticResults = await searchProductsQuick(query, Math.ceil(limit / 4));
-    externalProducts.push(...cosmeticResults.map(p => ({
-      ...p,
-      category: 'cosmetics',
-      source: 'cosing' as APISource
-    })));
-  }
-  
-  if (!mappedCategory || ['supplement', 'medication'].includes(mappedCategory)) {
-    // For supplements/medications, enhance with FDA search simulation
-    if (query.toLowerCase().includes('vitamin') || query.toLowerCase().includes('supplement')) {
-      externalProducts.push({
-        id: `supplement-${Date.now()}`,
-        name: `${query} Supplement`,
-        brand: 'External Source',
-        category: 'supplement',
-        verified: true,
-        source: 'fda' as APISource,
-        data: {},
-        imageUrl: '/placeholder.svg'
-      });
-    }
-  }
-
-  // Always search NAFDAC for Nigerian products (covers all categories)
   try {
-    const nafdacResponse = await fetch('https://flyvlvtvgvfybtnuntsd.supabase.co/functions/v1/nafdac-scraper', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZseXZsdnR2Z3ZmeWJ0bnVudHNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1NDQ5MTgsImV4cCI6MjA2NDEyMDkxOH0.iGlfXJUM6EZUwE_s0ipn6LR4ZkgK3d2hojRs5m_xo-g`,
-      },
-      body: JSON.stringify({
-        searchQuery: query,
-        limit: Math.ceil(limit / 4)
-      })
-    });
+    // Search OpenFoodFacts (mock implementation)
+    const openFoodFactsResults = await searchOpenFoodFacts(query, filters);
+    results.push(...openFoodFactsResults);
+    
+    // Search FDA database (mock implementation)
+    const fdaResults = await searchFDADatabase(query, filters);
+    results.push(...fdaResults);
+    
+    // Search NAFDAC (mock implementation)
+    const nafdacResults = await searchNAFDACDatabase(query, filters);
+    results.push(...nafdacResults);
+    
+    return results.slice(0, 20); // Limit results
+  } catch (error) {
+    console.error('External search error:', error);
+    return [];
+  }
+};
 
-    const nafdacData = await nafdacResponse.json();
-    if (nafdacData.found && nafdacData.products) {
-      nafdacData.products.forEach((product: any) => {
-        externalProducts.push({
-          id: product.id,
-          name: product.name,
-          brand: product.manufacturer,
-          category: product.category,
-          verified: product.verified,
-          source: 'nafdac' as APISource,
-          data: {
-            ...product,
-            certifyingOrganization: 'NAFDAC (Nigeria)',
-            country: 'Nigeria'
-          },
-          imageUrl: '/placeholder.svg'
-        });
-      });
+const searchOpenFoodFacts = async (
+  query: string,
+  filters: ExternalSearchFilters
+): Promise<ExternalProduct[]> => {
+  // Mock OpenFoodFacts search
+  const mockResults: ExternalProduct[] = [
+    {
+      id: `off-${Date.now()}-1`,
+      name: `${query} - OpenFoodFacts Product`,
+      brand: 'Sample Brand',
+      category: filters.category || 'Food & Beverages',
+      description: `Product found in OpenFoodFacts containing "${query}"`,
+      verified: Math.random() > 0.3,
+      confidence: Math.random() * 0.4 + 0.6,
+      source: 'openfoodfacts' as APISource,
+      barcode: `123456789${Math.floor(Math.random() * 1000)}`
     }
-  } catch (nafdacError) {
-    console.error('Error searching NAFDAC:', nafdacError);
-  }
+  ];
+  
+  return mockResults;
+};
 
-  // Filter external results by nutri-score if specified
-  if (filters.nutriScore && filters.nutriScore.length > 0) {
-    externalProducts = externalProducts.filter(product => 
-      product.nutriScore && filters.nutriScore!.includes(product.nutriScore)
-    );
-  }
+const searchFDADatabase = async (
+  query: string,
+  filters: ExternalSearchFilters
+): Promise<ExternalProduct[]> => {
+  // Mock FDA search
+  const mockResults: ExternalProduct[] = [
+    {
+      id: `fda-${Date.now()}-1`,
+      name: `${query} - FDA Approved`,
+      brand: 'Pharmaceutical Co.',
+      category: filters.category || 'Medicine',
+      description: `FDA approved product matching "${query}"`,
+      verified: true,
+      confidence: Math.random() * 0.2 + 0.8,
+      source: 'fda' as APISource,
+      barcode: `FDA${Math.floor(Math.random() * 100000)}`
+    }
+  ];
+  
+  return mockResults;
+};
 
-  return externalProducts;
+const searchNAFDACDatabase = async (
+  query: string,
+  filters: ExternalSearchFilters
+): Promise<ExternalProduct[]> => {
+  try {
+    // Use the NAFDAC scraper edge function
+    const { data, error } = await supabase.functions.invoke('nafdac-scraper', {
+      body: { query, filters }
+    });
+    
+    if (error) {
+      console.error('NAFDAC search error:', error);
+      return [];
+    }
+    
+    return data?.products?.map((product: any) => ({
+      id: `nafdac-${product.id || Date.now()}`,
+      name: product.name || `${query} - NAFDAC Product`,
+      brand: product.manufacturer || 'Unknown',
+      category: product.category || 'General',
+      description: product.description || `NAFDAC registered product containing "${query}"`,
+      verified: product.verified || false,
+      confidence: product.confidence || 0.7,
+      source: 'nafdac' as APISource,
+      barcode: product.registration_number || `NAFDAC${Math.floor(Math.random() * 100000)}`
+    })) || [];
+  } catch (error) {
+    console.error('NAFDAC search error:', error);
+    return [];
+  }
 };
