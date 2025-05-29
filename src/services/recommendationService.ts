@@ -1,16 +1,6 @@
 
-import { supabase, Product } from '@/lib/supabase';
-
-export interface UserPreferences {
-  favoriteCategories: string[];
-  preferredNutriScores: string[];
-  frequentSearches: string[];
-  location?: {
-    country?: string;
-    state?: string;
-    city?: string;
-  };
-}
+import { supabase, Product, Verification } from '@/lib/supabase';
+import { SearchFilters } from './productService';
 
 export interface RecommendationScore {
   product: Product;
@@ -18,68 +8,85 @@ export interface RecommendationScore {
   reasons: string[];
 }
 
-export const getUserPreferences = async (userId: string): Promise<UserPreferences> => {
-  // Get user's favorite categories from their favorited products
-  const { data: favorites } = await supabase
-    .from('user_favorites')
-    .select(`
-      product:products(
-        category:categories(name),
-        nutri_score,
-        country,
-        state,
-        city
-      )
-    `)
-    .eq('user_id', userId);
-
-  // Get user's search history
-  const { data: searches } = await supabase
-    .from('verifications')
-    .select('search_query')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(20);
-
-  // Safely extract categories, handling the nested structure
-  const favoriteCategories = Array.from(new Set(
-    favorites?.map(f => f.product?.category?.name).filter(Boolean) || []
-  ));
-
-  // Safely extract nutri scores
-  const preferredNutriScores = Array.from(new Set(
-    favorites?.map(f => f.product?.nutri_score).filter(Boolean) || []
-  ));
-
-  const frequentSearches = Array.from(new Set(
-    searches?.map(s => s.search_query).filter(Boolean) || []
-  )).slice(0, 10);
-
-  // Get most common location from favorites, handling the nested structure
-  const locations = favorites?.map(f => ({
-    country: f.product?.country,
-    state: f.product?.state,
-    city: f.product?.city
-  })).filter(l => l.country) || [];
-
-  const mostCommonLocation = locations.length > 0 ? locations[0] : undefined;
-
-  return {
-    favoriteCategories,
-    preferredNutriScores,
-    frequentSearches,
-    location: mostCommonLocation
-  };
-};
-
 export const getPersonalizedRecommendations = async (
-  userId: string,
+  userId: string, 
   limit: number = 5
 ): Promise<RecommendationScore[]> => {
-  const preferences = await getUserPreferences(userId);
-  
-  // Build query for recommendations
-  let query = supabase
+  try {
+    // Get user's verification history
+    const { data: verifications } = await supabase
+      .from('verifications')
+      .select(`
+        *,
+        product:products(
+          *,
+          manufacturer:manufacturers(*),
+          category:categories(*)
+        )
+      `)
+      .eq('user_id', userId)
+      .eq('result', 'verified')
+      .limit(50);
+
+    // Get user's favorites
+    const { data: favorites } = await supabase
+      .from('user_favorites')
+      .select(`
+        product:products(
+          *,
+          manufacturer:manufacturers(*),
+          category:categories(*)
+        )
+      `)
+      .eq('user_id', userId);
+
+    if (!verifications?.length && !favorites?.length) {
+      // Return trending products for new users
+      return getTrendingRecommendations(limit);
+    }
+
+    // Analyze user preferences
+    const allUserProducts = [
+      ...(verifications?.map(v => v.product).filter(Boolean) || []),
+      ...(favorites?.map(f => f.product).filter(Boolean) || [])
+    ];
+
+    // Extract preferences
+    const categoryPrefs = new Map<string, number>();
+    const locationPrefs = new Map<string, number>();
+    const nutriScorePrefs = new Map<string, number>();
+
+    allUserProducts.forEach((product: any) => {
+      if (product?.category?.name) {
+        categoryPrefs.set(product.category.name, (categoryPrefs.get(product.category.name) || 0) + 1);
+      }
+      if (product?.nutri_score) {
+        nutriScorePrefs.set(product.nutri_score, (nutriScorePrefs.get(product.nutri_score) || 0) + 1);
+      }
+      if (product?.country && product?.state) {
+        const location = `${product.country}, ${product.state}`;
+        locationPrefs.set(location, (locationPrefs.get(location) || 0) + 1);
+      }
+    });
+
+    // Get recommendations based on preferences
+    const recommendations = await getRecommendationsBasedOnPreferences(
+      categoryPrefs,
+      locationPrefs,
+      nutriScorePrefs,
+      allUserProducts.map(p => p.id),
+      limit * 2
+    );
+
+    return recommendations.slice(0, limit);
+  } catch (error) {
+    console.error('Error getting personalized recommendations:', error);
+    return getTrendingRecommendations(limit);
+  }
+};
+
+const getTrendingRecommendations = async (limit: number): Promise<RecommendationScore[]> => {
+  const { data: products } = await supabase
     .from('products')
     .select(`
       *,
@@ -87,94 +94,88 @@ export const getPersonalizedRecommendations = async (
       category:categories(*)
     `)
     .eq('status', 'approved')
-    .limit(20); // Get more to score and filter
+    .order('created_at', { ascending: false })
+    .limit(limit);
 
-  // Apply location preference if available
-  if (preferences.location?.country) {
-    query = query.eq('country', preferences.location.country);
-  }
+  return (products || []).map(product => ({
+    product,
+    score: 50,
+    reasons: ['Recently Added', 'Popular']
+  }));
+};
 
-  const { data: products, error } = await query;
+const getRecommendationsBasedOnPreferences = async (
+  categoryPrefs: Map<string, number>,
+  locationPrefs: Map<string, number>,
+  nutriScorePrefs: Map<string, number>,
+  excludeIds: string[],
+  limit: number
+): Promise<RecommendationScore[]> => {
+  let queryBuilder = supabase
+    .from('products')
+    .select(`
+      *,
+      manufacturer:manufacturers(*),
+      category:categories(*)
+    `)
+    .eq('status', 'approved')
+    .not('id', 'in', `(${excludeIds.join(',')})`)
+    .limit(limit);
 
-  if (error || !products) {
-    console.error('Error fetching products for recommendations:', error);
-    return [];
-  }
+  const { data: products } = await queryBuilder;
 
-  // Score products based on user preferences
-  const scoredProducts: RecommendationScore[] = products.map(product => {
+  if (!products) return [];
+
+  // Score products based on preferences
+  const scoredProducts = products.map(product => {
     let score = 0;
     const reasons: string[] = [];
 
-    // Category preference scoring
-    if (preferences.favoriteCategories.includes(product.category?.name || '')) {
-      score += 3;
-      reasons.push('Matches your favorite category');
+    // Category preference
+    if (product.category?.name && categoryPrefs.has(product.category.name)) {
+      score += categoryPrefs.get(product.category.name)! * 10;
+      reasons.push(`Similar to ${product.category.name} products you like`);
     }
 
-    // Nutri-Score preference scoring
-    if (preferences.preferredNutriScores.includes(product.nutri_score || '')) {
-      score += 2;
-      reasons.push('Matches your preferred Nutri-Score');
+    // Nutri-score preference
+    if (product.nutri_score && nutriScorePrefs.has(product.nutri_score)) {
+      score += nutriScorePrefs.get(product.nutri_score)! * 5;
+      reasons.push(`Good Nutri-Score (${product.nutri_score})`);
     }
 
-    // Location preference scoring
-    if (product.country === preferences.location?.country) {
-      score += 1;
-      reasons.push('Local product');
+    // Location preference
+    if (product.country && product.state) {
+      const location = `${product.country}, ${product.state}`;
+      if (locationPrefs.has(location)) {
+        score += locationPrefs.get(location)! * 3;
+        reasons.push(`From preferred location`);
+      }
     }
 
-    // Search history relevance
-    const productNameLower = product.name.toLowerCase();
-    const hasRelevantSearch = preferences.frequentSearches.some(search =>
-      productNameLower.includes(search.toLowerCase()) || 
-      search.toLowerCase().includes(productNameLower)
-    );
-    
-    if (hasRelevantSearch) {
-      score += 2;
-      reasons.push('Related to your searches');
-    }
-
-    // Boost high-quality products
-    if (product.nutri_score === 'A') {
-      score += 1;
-      reasons.push('High quality (Nutri-Score A)');
+    // Boost for good nutri-scores
+    if (['A', 'B'].includes(product.nutri_score || '')) {
+      score += 5;
+      reasons.push('Excellent nutrition rating');
     }
 
     return {
       product,
-      score,
-      reasons
+      score: score || 10, // Default score for products without specific matches
+      reasons: reasons.length > 0 ? reasons : ['Recommended for you']
     };
-  })
-  .filter(item => item.score > 0) // Only include products with some relevance
-  .sort((a, b) => b.score - a.score) // Sort by highest score first
-  .slice(0, limit);
+  });
 
-  return scoredProducts;
+  return scoredProducts
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
 };
 
-export const getSimilarProductsEnhanced = async (
-  productId: string,
-  userId?: string,
+export const getRecommendationsByCategory = async (
+  categoryName: string,
+  excludeIds: string[] = [],
   limit: number = 5
 ): Promise<Product[]> => {
-  // Get the base product
-  const { data: baseProduct } = await supabase
-    .from('products')
-    .select(`
-      *,
-      category:categories(*),
-      manufacturer:manufacturers(*)
-    `)
-    .eq('id', productId)
-    .single();
-
-  if (!baseProduct) return [];
-
-  // Find similar products
-  let query = supabase
+  const { data: products } = await supabase
     .from('products')
     .select(`
       *,
@@ -182,38 +183,9 @@ export const getSimilarProductsEnhanced = async (
       category:categories(*)
     `)
     .eq('status', 'approved')
-    .neq('id', productId); // Exclude the base product
+    .eq('category.name', categoryName)
+    .not('id', 'in', `(${excludeIds.join(',')})`)
+    .limit(limit);
 
-  // Prioritize same category
-  if (baseProduct.category_id) {
-    query = query.eq('category_id', baseProduct.category_id);
-  }
-
-  const { data: products } = await query.limit(limit * 2); // Get more to filter
-
-  if (!products) return [];
-
-  // Score similarity
-  const scoredProducts = products.map(product => {
-    let score = 0;
-
-    // Same category
-    if (product.category_id === baseProduct.category_id) score += 3;
-    
-    // Same manufacturer
-    if (product.manufacturer_id === baseProduct.manufacturer_id) score += 2;
-    
-    // Similar Nutri-Score
-    if (product.nutri_score === baseProduct.nutri_score) score += 2;
-    
-    // Same location
-    if (product.country === baseProduct.country) score += 1;
-
-    return { product, score };
-  })
-  .sort((a, b) => b.score - a.score)
-  .slice(0, limit)
-  .map(item => item.product);
-
-  return scoredProducts;
+  return products || [];
 };

@@ -75,8 +75,8 @@ export const performAdvancedSearch = async (
       queryBuilder = queryBuilder.order('created_at', { ascending: true });
       break;
     case 'nutri_score_best':
-      // Order by nutri_score (A is best, E is worst)
-      queryBuilder = queryBuilder.order('nutri_score', { ascending: true, nullsLast: true });
+      // Order by nutri_score (A is best, E is worst) - use nullsFirst instead of nullsLast
+      queryBuilder = queryBuilder.order('nutri_score', { ascending: true, nullsFirst: true });
       break;
     case 'location':
       queryBuilder = queryBuilder.order('country', { ascending: true })
