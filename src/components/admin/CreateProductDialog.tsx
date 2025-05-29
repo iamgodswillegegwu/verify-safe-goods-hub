@@ -30,7 +30,7 @@ interface CreateProductDialogProps {
 }
 
 const CreateProductDialog = ({ isOpen, onClose, categories, manufacturers, onProductCreated }: CreateProductDialogProps) => {
-  const [createFormData, setCreateFormData] = useState({
+  const [formData, setFormData] = useState({
     name: '',
     description: '',
     ingredients: '',
@@ -43,35 +43,31 @@ const CreateProductDialog = ({ isOpen, onClose, categories, manufacturers, onPro
     country: '',
     state: '',
     city: '',
-    allergens: '',
     nutri_score: '',
+    allergens: [] as string[],
   });
   const { toast } = useToast();
 
   const handleCreateProduct = async () => {
     try {
-      console.log('Creating new product:', createFormData.name);
+      console.log('Creating product with data:', formData);
       
-      const allergensList = createFormData.allergens 
-        ? createFormData.allergens.split(',').map(item => item.trim()).filter(item => item)
-        : [];
-
       const productData = {
-        name: createFormData.name,
-        description: createFormData.description,
-        ingredients: createFormData.ingredients,
-        manufacturing_date: createFormData.manufacturing_date,
-        expiry_date: createFormData.expiry_date,
-        batch_number: createFormData.batch_number,
-        certification_number: createFormData.certification_number || null,
-        manufacturer_id: createFormData.manufacturer_id || null,
-        category_id: createFormData.category_id || null,
-        country: createFormData.country || null,
-        state: createFormData.state || null,
-        city: createFormData.city || null,
-        allergens: allergensList.length > 0 ? allergensList : null,
-        nutri_score: createFormData.nutri_score || null,
-        status: 'pending',
+        name: formData.name,
+        description: formData.description,
+        ingredients: formData.ingredients,
+        manufacturing_date: formData.manufacturing_date,
+        expiry_date: formData.expiry_date,
+        batch_number: formData.batch_number,
+        certification_number: formData.certification_number || null,
+        manufacturer_id: formData.manufacturer_id || null,
+        category_id: formData.category_id || null,
+        country: formData.country || null,
+        state: formData.state || null,
+        city: formData.city || null,
+        nutri_score: formData.nutri_score || null,
+        allergens: formData.allergens.length > 0 ? formData.allergens : null,
+        status: 'pending' as const,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -96,8 +92,8 @@ const CreateProductDialog = ({ isOpen, onClose, categories, manufacturers, onPro
         description: "Product created successfully",
       });
 
-      onClose();
-      setCreateFormData({
+      // Reset form
+      setFormData({
         name: '',
         description: '',
         ingredients: '',
@@ -110,9 +106,11 @@ const CreateProductDialog = ({ isOpen, onClose, categories, manufacturers, onPro
         country: '',
         state: '',
         city: '',
-        allergens: '',
         nutri_score: '',
+        allergens: [],
       });
+
+      onClose();
       onProductCreated();
     } catch (error) {
       console.error('Error creating product:', error);
@@ -124,73 +122,99 @@ const CreateProductDialog = ({ isOpen, onClose, categories, manufacturers, onPro
     }
   };
 
+  const addAllergen = (allergen: string) => {
+    if (allergen && !formData.allergens.includes(allergen)) {
+      setFormData(prev => ({
+        ...prev,
+        allergens: [...prev.allergens, allergen]
+      }));
+    }
+  };
+
+  const removeAllergen = (allergen: string) => {
+    setFormData(prev => ({
+      ...prev,
+      allergens: prev.allergens.filter(a => a !== allergen)
+    }));
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add New Product</DialogTitle>
+          <DialogTitle>Create New Product</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="create_name">Product Name *</Label>
+              <Label htmlFor="name">Product Name *</Label>
               <Input
-                id="create_name"
-                value={createFormData.name}
-                onChange={(e) => setCreateFormData(prev => ({ ...prev, name: e.target.value }))}
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                required
               />
             </div>
             <div>
-              <Label htmlFor="create_batch">Batch Number *</Label>
+              <Label htmlFor="batch_number">Batch Number *</Label>
               <Input
-                id="create_batch"
-                value={createFormData.batch_number}
-                onChange={(e) => setCreateFormData(prev => ({ ...prev, batch_number: e.target.value }))}
+                id="batch_number"
+                value={formData.batch_number}
+                onChange={(e) => setFormData(prev => ({ ...prev, batch_number: e.target.value }))}
+                required
               />
             </div>
           </div>
+
           <div>
-            <Label htmlFor="create_description">Description *</Label>
+            <Label htmlFor="description">Description *</Label>
             <Textarea
-              id="create_description"
-              value={createFormData.description}
-              onChange={(e) => setCreateFormData(prev => ({ ...prev, description: e.target.value }))}
+              id="description"
+              value={formData.description}
+              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
               rows={3}
+              required
             />
           </div>
+
           <div>
-            <Label htmlFor="create_ingredients">Ingredients *</Label>
+            <Label htmlFor="ingredients">Ingredients *</Label>
             <Textarea
-              id="create_ingredients"
-              value={createFormData.ingredients}
-              onChange={(e) => setCreateFormData(prev => ({ ...prev, ingredients: e.target.value }))}
-              rows={2}
+              id="ingredients"
+              value={formData.ingredients}
+              onChange={(e) => setFormData(prev => ({ ...prev, ingredients: e.target.value }))}
+              rows={3}
+              required
             />
           </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="create_manufacturing_date">Manufacturing Date *</Label>
+              <Label htmlFor="manufacturing_date">Manufacturing Date *</Label>
               <Input
-                id="create_manufacturing_date"
+                id="manufacturing_date"
                 type="date"
-                value={createFormData.manufacturing_date}
-                onChange={(e) => setCreateFormData(prev => ({ ...prev, manufacturing_date: e.target.value }))}
+                value={formData.manufacturing_date}
+                onChange={(e) => setFormData(prev => ({ ...prev, manufacturing_date: e.target.value }))}
+                required
               />
             </div>
             <div>
-              <Label htmlFor="create_expiry_date">Expiry Date *</Label>
+              <Label htmlFor="expiry_date">Expiry Date *</Label>
               <Input
-                id="create_expiry_date"
+                id="expiry_date"
                 type="date"
-                value={createFormData.expiry_date}
-                onChange={(e) => setCreateFormData(prev => ({ ...prev, expiry_date: e.target.value }))}
+                value={formData.expiry_date}
+                onChange={(e) => setFormData(prev => ({ ...prev, expiry_date: e.target.value }))}
+                required
               />
             </div>
           </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="create_manufacturer">Manufacturer</Label>
-              <Select value={createFormData.manufacturer_id} onValueChange={(value) => setCreateFormData(prev => ({ ...prev, manufacturer_id: value }))}>
+              <Label htmlFor="manufacturer">Manufacturer</Label>
+              <Select value={formData.manufacturer_id} onValueChange={(value) => setFormData(prev => ({ ...prev, manufacturer_id: value }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select manufacturer" />
                 </SelectTrigger>
@@ -204,8 +228,8 @@ const CreateProductDialog = ({ isOpen, onClose, categories, manufacturers, onPro
               </Select>
             </div>
             <div>
-              <Label htmlFor="create_category">Category</Label>
-              <Select value={createFormData.category_id} onValueChange={(value) => setCreateFormData(prev => ({ ...prev, category_id: value }))}>
+              <Label htmlFor="category">Category</Label>
+              <Select value={formData.category_id} onValueChange={(value) => setFormData(prev => ({ ...prev, category_id: value }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
@@ -219,49 +243,50 @@ const CreateProductDialog = ({ isOpen, onClose, categories, manufacturers, onPro
               </Select>
             </div>
           </div>
+
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <Label htmlFor="create_country">Country</Label>
+              <Label htmlFor="country">Country</Label>
               <Input
-                id="create_country"
-                value={createFormData.country}
-                onChange={(e) => setCreateFormData(prev => ({ ...prev, country: e.target.value }))}
+                id="country"
+                value={formData.country}
+                onChange={(e) => setFormData(prev => ({ ...prev, country: e.target.value }))}
               />
             </div>
             <div>
-              <Label htmlFor="create_state">State</Label>
+              <Label htmlFor="state">State</Label>
               <Input
-                id="create_state"
-                value={createFormData.state}
-                onChange={(e) => setCreateFormData(prev => ({ ...prev, state: e.target.value }))}
+                id="state"
+                value={formData.state}
+                onChange={(e) => setFormData(prev => ({ ...prev, state: e.target.value }))}
               />
             </div>
             <div>
-              <Label htmlFor="create_city">City</Label>
+              <Label htmlFor="city">City</Label>
               <Input
-                id="create_city"
-                value={createFormData.city}
-                onChange={(e) => setCreateFormData(prev => ({ ...prev, city: e.target.value }))}
+                id="city"
+                value={formData.city}
+                onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
               />
             </div>
           </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="create_certification">Certification Number</Label>
+              <Label htmlFor="certification_number">Certification Number</Label>
               <Input
-                id="create_certification"
-                value={createFormData.certification_number}
-                onChange={(e) => setCreateFormData(prev => ({ ...prev, certification_number: e.target.value }))}
+                id="certification_number"
+                value={formData.certification_number}
+                onChange={(e) => setFormData(prev => ({ ...prev, certification_number: e.target.value }))}
               />
             </div>
             <div>
-              <Label htmlFor="create_nutri_score">Nutri-Score</Label>
-              <Select value={createFormData.nutri_score} onValueChange={(value) => setCreateFormData(prev => ({ ...prev, nutri_score: value }))}>
+              <Label htmlFor="nutri_score">Nutri-Score</Label>
+              <Select value={formData.nutri_score} onValueChange={(value) => setFormData(prev => ({ ...prev, nutri_score: value }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select Nutri-Score" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No Score</SelectItem>
                   <SelectItem value="A">A (Best)</SelectItem>
                   <SelectItem value="B">B</SelectItem>
                   <SelectItem value="C">C</SelectItem>
@@ -271,21 +296,35 @@ const CreateProductDialog = ({ isOpen, onClose, categories, manufacturers, onPro
               </Select>
             </div>
           </div>
+
           <div>
-            <Label htmlFor="create_allergens">Allergens (comma-separated)</Label>
-            <Input
-              id="create_allergens"
-              value={createFormData.allergens}
-              onChange={(e) => setCreateFormData(prev => ({ ...prev, allergens: e.target.value }))}
-              placeholder="e.g., Nuts, Dairy, Gluten"
-            />
+            <Label>Allergens</Label>
+            <div className="flex flex-wrap gap-2 mb-2">
+              {formData.allergens.map((allergen) => (
+                <span
+                  key={allergen}
+                  className="bg-orange-100 text-orange-800 px-2 py-1 rounded text-sm cursor-pointer"
+                  onClick={() => removeAllergen(allergen)}
+                >
+                  {allergen} ×
+                </span>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Add allergen and press Enter"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    addAllergen((e.target as HTMLInputElement).value);
+                    (e.target as HTMLInputElement).value = '';
+                  }
+                }}
+              />
+            </div>
           </div>
+
           <div className="flex gap-2 pt-4">
-            <Button 
-              onClick={handleCreateProduct} 
-              className="flex-1"
-              disabled={!createFormData.name || !createFormData.description || !createFormData.ingredients || !createFormData.manufacturing_date || !createFormData.expiry_date || !createFormData.batch_number}
-            >
+            <Button onClick={handleCreateProduct} className="flex-1">
               Create Product
             </Button>
             <Button variant="outline" onClick={onClose}>
