@@ -1,10 +1,9 @@
-
 import { useState, useEffect } from 'react';
 import { Camera, Search, Shield, Users, BarChart3, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { verifyProduct, getSimilarProducts } from '@/services/productService';
 import { useToast } from '@/hooks/use-toast';
@@ -29,6 +28,17 @@ const Index = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+
+  // Check for startScanning parameter on component mount
+  useEffect(() => {
+    const shouldStartScanning = searchParams.get('startScanning');
+    if (shouldStartScanning === 'true') {
+      setIsScanning(true);
+      // Clean up the URL parameter
+      navigate('/', { replace: true });
+    }
+  }, [searchParams, navigate]);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;

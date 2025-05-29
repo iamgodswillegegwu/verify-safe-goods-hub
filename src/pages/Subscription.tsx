@@ -1,14 +1,27 @@
-
 import { useState } from 'react';
 import { Check, Star, Crown, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 import Navigation from '@/components/Navigation';
 
 const Subscription = () => {
   const [isAnnual, setIsAnnual] = useState(false);
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const handleGetStarted = (planName: string) => {
+    if (user) {
+      // User is authenticated, redirect to main page with scanner
+      navigate('/?startScanning=true');
+    } else {
+      // User is not authenticated, redirect to signup
+      navigate('/signup');
+    }
+  };
 
   const plans = [
     {
@@ -157,8 +170,9 @@ const Subscription = () => {
                 <Button 
                   className={`w-full ${buttonClasses[plan.color]} text-white font-semibold py-3`}
                   size="lg"
+                  onClick={() => handleGetStarted(plan.name)}
                 >
-                  {plan.price.monthly === 0 ? 'Get Started Free' : 'Start Free Trial'}
+                  {plan.price.monthly === 0 ? 'Start Verifying' : 'Start Free Trial'}
                 </Button>
 
                 <div>
