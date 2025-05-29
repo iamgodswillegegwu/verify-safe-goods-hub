@@ -8,7 +8,8 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Key, Database, Mail, CreditCard, MessageSquare, Globe, CheckCircle, XCircle } from 'lucide-react';
+import { Key, Database, Mail, CreditCard, MessageSquare, Globe, CheckCircle, XCircle, Zap } from 'lucide-react';
+import ExternalAPISettings from './ExternalAPISettings';
 
 const APIIntegrations = () => {
   const { toast } = useToast();
@@ -120,13 +121,18 @@ const APIIntegrations = () => {
         </p>
       </div>
 
-      <Tabs defaultValue="ai" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+      <Tabs defaultValue="external-validation" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="external-validation">External Validation</TabsTrigger>
           <TabsTrigger value="ai">AI Services</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
           <TabsTrigger value="communication">Communication</TabsTrigger>
           <TabsTrigger value="infrastructure">Infrastructure</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="external-validation" className="space-y-6">
+          <ExternalAPISettings />
+        </TabsContent>
 
         <TabsContent value="ai" className="space-y-6">
           {/* OpenAI Integration */}
@@ -348,7 +354,6 @@ const APIIntegrations = () => {
             </CardContent>
           </Card>
 
-          {/* Twilio Integration */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
@@ -502,7 +507,6 @@ const APIIntegrations = () => {
             </CardContent>
           </Card>
 
-          {/* AWS Integration */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
