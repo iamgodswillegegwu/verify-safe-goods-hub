@@ -53,8 +53,29 @@ const Index = () => {
       const verification = await verifyProduct(searchQuery, user?.id, searchFilters);
       
       let similarProducts = [];
+      let externalData = null;
+
+      // If not verified in internal DB, search external APIs and get similar products
       if (verification.result !== 'verified') {
+        // Get similar products from internal database
         similarProducts = await getSimilarProducts(searchQuery, searchFilters);
+        
+        // Also search external APIs for additional data
+        try {
+          const { performEnhancedSearch } = await import('@/services/enhancedSearchService');
+          const enhancedResult = await performEnhancedSearch(searchQuery, searchFilters, 5);
+          
+          if (enhancedResult.external.products.length > 0) {
+            externalData = enhancedResult.external.products[0];
+            // Add external products to similar products
+            similarProducts = [
+              ...similarProducts.map(p => ({ ...p, source: 'internal' })),
+              ...enhancedResult.external.products.slice(1).map(p => ({ ...p, source: 'external' }))
+            ];
+          }
+        } catch (error) {
+          console.error('Error searching external APIs:', error);
+        }
       }
 
       const result = {
@@ -66,24 +87,34 @@ const Index = () => {
         certificationNumber: verification.product?.certification_number || 'N/A',
         similarProducts: similarProducts.map(p => ({
           name: p.name,
-          manufacturer: p.manufacturer?.company_name || 'Unknown',
-          verified: true
+          manufacturer: p.manufacturer?.company_name || p.brand || 'Unknown',
+          verified: p.source === 'internal' || p.verified,
+          source: p.source || 'internal',
+          imageUrl: p.imageUrl || p.image_url,
+          nutriScore: p.nutriScore || p.nutri_score
         })),
-        product: verification.product
+        product: verification.product,
+        externalData,
+        searchFilters
       };
       
       setVerificationResult(result);
 
-      // Show toast notification
+      // Show appropriate toast notification
       if (verification.result === 'verified') {
         toast({
           title: "Product Verified! ✓",
           description: "This product is authentic and safe to use.",
         });
+      } else if (externalData) {
+        toast({
+          title: "Product Found in External Database",
+          description: `Found in ${externalData.source.toUpperCase()} database.`,
+        });
       } else {
         toast({
           title: "Product Not Found",
-          description: "This product is not in our verified database.",
+          description: "Product not found in verified databases. Check suggested alternatives.",
           variant: "destructive",
         });
       }
@@ -114,25 +145,27 @@ const Index = () => {
     setShowSuggestions(false);
     
     if (isExternal && product) {
-      // If it's an external product, show it directly
+      // If it's an external product, show it directly with enhanced details
       const result = {
         productName,
         isVerified: product.verified,
         manufacturer: product.brand || 'External Source',
         registrationDate: 'N/A',
-        certificationNumber: 'External Product',
+        certificationNumber: product.id || 'External Product',
         similarProducts: [],
-        product: null
+        product: null,
+        externalData: product,
+        searchFilters
       };
       
       setVerificationResult(result);
       
       toast({
-        title: "External Product Found",
+        title: "External Product Selected",
         description: `Found ${productName} from ${product.source.toUpperCase()}`,
       });
     } else {
-      // Search internal database
+      // Search internal database with enhanced search
       await handleSearch();
     }
   };
@@ -248,10 +281,13 @@ const Index = () => {
                       </div>
                     )}
 
-                    {/* Verification Result - Enhanced Display */}
+                    {/* Enhanced Verification Result Display */}
                     {verificationResult && (
                       <div className="mt-6">
-                        <EnhancedProductDisplay result={verificationResult} />
+                        <EnhancedProductDisplay 
+                          result={verificationResult} 
+                          similarProducts={verificationResult.similarProducts}
+                        />
                       </div>
                     )}
                   </CardContent>

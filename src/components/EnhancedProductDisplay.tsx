@@ -12,14 +12,17 @@ import {
   Globe,
   Star,
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  FileText,
+  Factory
 } from 'lucide-react';
 
 interface EnhancedProductDisplayProps {
   result: any;
+  similarProducts?: any[];
 }
 
-const EnhancedProductDisplay = ({ result }: EnhancedProductDisplayProps) => {
+const EnhancedProductDisplay = ({ result, similarProducts = [] }: EnhancedProductDisplayProps) => {
   const isExternal = !!result.externalData;
   const productData = result.externalData || result.product;
   
@@ -33,6 +36,100 @@ const EnhancedProductDisplay = ({ result }: EnhancedProductDisplayProps) => {
       default: return 'bg-gray-400 text-white';
     }
   };
+
+  const getCertifyingOrganization = (source?: string) => {
+    switch (source?.toLowerCase()) {
+      case 'openfoodfacts': return 'Open Food Facts';
+      case 'fda': return 'FDA (Food and Drug Administration)';
+      case 'cosing': return 'CosIng (EU Cosmetics Database)';
+      case 'gs1': return 'GS1 Global Standards';
+      case 'internal': return 'Internal Database';
+      default: return source?.toUpperCase() || 'Not found or Missing';
+    }
+  };
+
+  const formatValue = (value: any, fallback = "Not found or Missing") => {
+    if (value === null || value === undefined || value === '' || 
+        (Array.isArray(value) && value.length === 0)) {
+      return fallback;
+    }
+    if (Array.isArray(value)) {
+      return value.join(', ');
+    }
+    return String(value);
+  };
+
+  if (!result.isVerified && !productData) {
+    return (
+      <div className="space-y-6">
+        {/* Warning Message for Product Not Found */}
+        <Card className="border-2 border-red-200 bg-red-50">
+          <CardHeader className="bg-red-100 rounded-t-lg">
+            <CardTitle className="flex items-center gap-3">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
+              <span className="text-red-800">⚠️ Product Not Verified</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="bg-red-100 p-4 rounded-lg mb-4">
+              <p className="text-red-700 font-medium mb-2">
+                It seems like the product you're searching for is not Verified, as it cannot be found in our database.
+              </p>
+              <p className="text-red-600 text-sm">
+                Please consider the following verified products with similar names or contents.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Similar Products Suggestions */}
+        {similarProducts.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Star className="h-5 w-5 text-blue-600" />
+                Suggested Verified Products
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3">
+                {similarProducts.slice(0, 5).map((product: any, index: number) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      {product.imageUrl && (
+                        <img 
+                          src={product.imageUrl} 
+                          alt={product.name}
+                          className="w-10 h-10 rounded object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = '/placeholder.svg';
+                          }}
+                        />
+                      )}
+                      <div>
+                        <p className="font-medium text-sm">{product.name}</p>
+                        <p className="text-xs text-gray-600">by {formatValue(product.manufacturer || product.brand)}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {product.nutriScore && (
+                        <Badge className={getNutriScoreColor(product.nutriScore)}>
+                          {product.nutriScore}
+                        </Badge>
+                      )}
+                      <Badge variant="outline">
+                        {product.source === 'external' ? 'External' : 'Verified'}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -77,26 +174,24 @@ const EnhancedProductDisplay = ({ result }: EnhancedProductDisplayProps) => {
           <div className="grid md:grid-cols-2 gap-6">
             {/* Product Image */}
             <div className="space-y-4">
-              {productData?.imageUrl && (
-                <div className="text-center">
-                  <img 
-                    src={productData.imageUrl} 
-                    alt={result.productName}
-                    className="w-full max-w-xs mx-auto rounded-lg shadow-md"
-                    onError={(e) => {
-                      e.currentTarget.src = '/placeholder.svg';
-                    }}
-                  />
-                  <p className="text-xs text-gray-500 mt-2">Official Product Image</p>
-                </div>
-              )}
+              <div className="text-center">
+                <img 
+                  src={productData?.imageUrl || productData?.image_url || '/placeholder.svg'} 
+                  alt={result.productName}
+                  className="w-full max-w-xs mx-auto rounded-lg shadow-md"
+                  onError={(e) => {
+                    e.currentTarget.src = '/placeholder.svg';
+                  }}
+                />
+                <p className="text-xs text-gray-500 mt-2">Product Image</p>
+              </div>
               
               {/* Quick Info Badges */}
               <div className="flex flex-wrap gap-2">
-                {productData?.nutriScore && (
-                  <Badge className={getNutriScoreColor(productData.nutriScore)}>
+                {(productData?.nutri_score || productData?.nutriScore) && (
+                  <Badge className={getNutriScoreColor(productData.nutri_score || productData.nutriScore)}>
                     <Award className="h-3 w-3 mr-1" />
-                    Nutri-Score {productData.nutriScore.toUpperCase()}
+                    Nutri-Score {(productData.nutri_score || productData.nutriScore).toUpperCase()}
                   </Badge>
                 )}
                 {(productData?.category?.name || productData?.category) && (
@@ -105,97 +200,147 @@ const EnhancedProductDisplay = ({ result }: EnhancedProductDisplayProps) => {
                     {typeof productData.category === 'object' ? productData.category.name : productData.category}
                   </Badge>
                 )}
-                {isExternal && productData?.source && (
-                  <Badge variant="secondary">
-                    Source: {productData.source.toUpperCase()}
-                  </Badge>
-                )}
               </div>
             </div>
 
-            {/* Product Details */}
+            {/* Enhanced Product Details */}
             <div className="space-y-4">
               <div>
                 <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                  <Building className="h-4 w-4" />
+                  <FileText className="h-4 w-4" />
                   Product Information
                 </h4>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
+                    <span className="text-gray-600">Product Name:</span>
+                    <span className="font-medium text-right">{formatValue(result.productName)}</span>
+                  </div>
+                  <div className="flex justify-between">
                     <span className="text-gray-600">Manufacturer:</span>
-                    <span className="font-medium">{result.manufacturer}</span>
+                    <span className="font-medium text-right">
+                      {formatValue(
+                        productData?.manufacturer?.company_name || 
+                        productData?.brand || 
+                        result.manufacturer ||
+                        productData?.labeler_name
+                      )}
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Registration:</span>
-                    <span className="font-medium">{result.registrationDate}</span>
+                    <span className="text-gray-600">Countries Available:</span>
+                    <span className="font-medium text-right">{formatValue(productData?.country || productData?.countries)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Certification:</span>
-                    <span className="font-medium">{result.certificationNumber}</span>
+                    <span className="text-gray-600">Manufacturing Date:</span>
+                    <span className="font-medium text-right">
+                      {formatValue(
+                        productData?.manufacturing_date ? 
+                          new Date(productData.manufacturing_date).toLocaleDateString() : 
+                          null
+                      )}
+                    </span>
                   </div>
-                  {productData?.country && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Origin:</span>
-                      <span className="font-medium flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        {productData.country}
-                        {productData.state && `, ${productData.state}`}
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Date Registered:</span>
+                    <span className="font-medium text-right">
+                      {formatValue(
+                        result.registrationDate !== 'N/A' ? result.registrationDate :
+                        productData?.created_at ? new Date(productData.created_at).toLocaleDateString() : null
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Date Approved:</span>
+                    <span className="font-medium text-right">
+                      {formatValue(
+                        productData?.updated_at ? 
+                          new Date(productData.updated_at).toLocaleDateString() : 
+                          null
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Certification Details */}
+              <div>
+                <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                  <Shield className="h-4 w-4" />
+                  Certification Details
+                </h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Registration Body:</span>
+                    <span className="font-medium text-right">
+                      {getCertifyingOrganization(productData?.source || 'internal')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Registration Number:</span>
+                    <span className="font-medium text-right">
+                      {formatValue(
+                        result.certificationNumber !== 'N/A' ? result.certificationNumber :
+                        productData?.product_ndc ||
+                        productData?.code ||
+                        productData?.id
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Nutri-Score:</span>
+                    <span className="font-medium text-right">
+                      {formatValue(productData?.nutri_score || productData?.nutriScore)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Certification Status:</span>
+                    <span className="font-medium text-right">
+                      <Badge variant={productData?.verified ? "default" : "destructive"}>
+                        {productData?.verified ? 'Certified' : 'Under Review'}
+                      </Badge>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Product Contents/Ingredients */}
+              <div>
+                <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                  <Factory className="h-4 w-4" />
+                  Contents & Ingredients
+                </h4>
+                <div className="text-sm">
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <p className="text-gray-700">
+                      {formatValue(
+                        productData?.ingredients_text ||
+                        productData?.ingredients?.join(', ') ||
+                        productData?.active_ingredients?.map((ing: any) => ing.name || ing).join(', ') ||
+                        productData?.description
+                      )}
+                    </p>
+                  </div>
+                  {productData?.allergens && (
+                    <div className="mt-2">
+                      <span className="text-gray-600 text-xs">Allergens: </span>
+                      <span className="text-red-600 text-xs font-medium">
+                        {formatValue(productData.allergens)}
                       </span>
                     </div>
                   )}
                 </div>
               </div>
-
-              {/* Additional Details for External Products */}
-              {isExternal && productData && (
-                <div>
-                  <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                    <Globe className="h-4 w-4" />
-                    External Database Details
-                  </h4>
-                  <div className="space-y-2 text-sm">
-                    {productData.brand && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Brand:</span>
-                        <span className="font-medium">{productData.brand}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Data Source:</span>
-                      <span className="font-medium">{productData.source?.toUpperCase()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Verification Status:</span>
-                      <Badge variant={productData.verified ? "default" : "destructive"} className="text-xs">
-                        {productData.verified ? 'Verified' : 'Unverified'}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Filter Context */}
-              {result.searchFilters && Object.keys(result.searchFilters).length > 0 && (
-                <div>
-                  <h4 className="font-semibold text-gray-700 mb-3">Search Context</h4>
-                  <div className="flex flex-wrap gap-1">
-                    {Object.entries(result.searchFilters).map(([key, value]) => 
-                      value && (
-                        <Badge key={key} variant="outline" className="text-xs">
-                          {key}: {Array.isArray(value) ? value.join(', ') : value}
-                        </Badge>
-                      )
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Similar Products */}
-      {result.similarProducts && result.similarProducts.length > 0 && (
+      {/* Similar Products (if any) */}
+      {similarProducts && similarProducts.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -205,7 +350,7 @@ const EnhancedProductDisplay = ({ result }: EnhancedProductDisplayProps) => {
           </CardHeader>
           <CardContent>
             <div className="grid gap-3">
-              {result.similarProducts.slice(0, 5).map((product: any, index: number) => (
+              {similarProducts.slice(0, 5).map((product: any, index: number) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center gap-3">
                     {product.imageUrl && (
@@ -220,16 +365,16 @@ const EnhancedProductDisplay = ({ result }: EnhancedProductDisplayProps) => {
                     )}
                     <div>
                       <p className="font-medium text-sm">{product.name}</p>
-                      <p className="text-xs text-gray-600">by {product.manufacturer}</p>
+                      <p className="text-xs text-gray-600">by {formatValue(product.manufacturer || product.brand)}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {product.nutriScore && (
-                      <Badge className={getNutriScoreColor(product.nutriScore)} size="sm">
+                      <Badge className={getNutriScoreColor(product.nutriScore)}>
                         {product.nutriScore}
                       </Badge>
                     )}
-                    <Badge variant="outline" size="sm">
+                    <Badge variant="outline">
                       {product.source === 'external' ? 'External' : 'Verified'}
                     </Badge>
                   </div>
