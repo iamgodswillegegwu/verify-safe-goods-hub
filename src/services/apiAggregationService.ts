@@ -167,25 +167,27 @@ export const performAggregatedValidation = async (
   }
 };
 
-// Analytics and monitoring
+// Analytics and monitoring - simplified implementation
 export const logValidationAttempt = async (
   productName: string,
   result: AggregatedValidationResult,
   userId?: string
 ) => {
   try {
-    // Use rpc call since validation_logs table doesn't exist in types yet
-    const { error } = await supabase.rpc('log_validation_attempt', {
-      p_user_id: userId,
-      p_product_name: productName,
-      p_result_summary: result.summary,
-      p_risk_level: result.riskLevel,
-      p_confidence: result.confidence,
-      p_sources_checked: {
-        internal: result.sources.internal.found,
-        external: result.sources.external.found
-      }
-    });
+    // Direct insert since RPC functions don't exist yet
+    const { error } = await supabase
+      .from('validation_logs')
+      .insert({
+        user_id: userId,
+        product_name: productName,
+        result_summary: result.summary,
+        risk_level: result.riskLevel,
+        confidence: result.confidence,
+        sources_checked: {
+          internal: result.sources.internal.found,
+          external: result.sources.external.found
+        }
+      });
 
     if (error) {
       console.error('Error logging validation attempt:', error);
@@ -202,10 +204,13 @@ export const getValidationStats = async (): Promise<{
   topSources: Record<string, number>;
 }> => {
   try {
-    // Use rpc call since validation_logs table doesn't exist in types yet
-    const { data, error } = await supabase.rpc('get_validation_stats');
+    // Direct query since RPC functions don't exist yet
+    const { data: logs, error } = await supabase
+      .from('validation_logs')
+      .select('*')
+      .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
 
-    if (error || !data) {
+    if (error || !logs) {
       return {
         totalValidations: 0,
         verifiedProducts: 0,
@@ -214,7 +219,17 @@ export const getValidationStats = async (): Promise<{
       };
     }
 
-    return data;
+    const riskDistribution = logs.reduce((acc, log) => {
+      acc[log.risk_level || 'unknown'] = (acc[log.risk_level || 'unknown'] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return {
+      totalValidations: logs.length,
+      verifiedProducts: logs.filter(log => log.risk_level === 'low').length,
+      riskDistribution,
+      topSources: {} // Will be enhanced later
+    };
   } catch (error) {
     console.error('Error getting validation stats:', error);
     return {

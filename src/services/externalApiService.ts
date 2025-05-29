@@ -241,17 +241,20 @@ export const validateProductExternal = async (
   }
 };
 
-// Cache management for API results - using RPC calls since tables aren't in types yet
+// Cache management for API results - simplified implementation
 export const cacheExternalResult = async (
   query: string,
   result: ValidationResult
 ): Promise<void> => {
   try {
-    const { error } = await supabase.rpc('cache_external_result', {
-      p_query_hash: btoa(query),
-      p_result_data: result,
-      p_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-    });
+    // Direct insert since RPC functions don't exist yet
+    const { error } = await supabase
+      .from('external_api_cache')
+      .insert({
+        query_hash: btoa(query),
+        result_data: result,
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      });
 
     if (error) {
       console.error('Error caching external result:', error);
@@ -263,15 +266,19 @@ export const cacheExternalResult = async (
 
 export const getCachedResult = async (query: string): Promise<ValidationResult | null> => {
   try {
-    const { data, error } = await supabase.rpc('get_cached_result', {
-      p_query_hash: btoa(query)
-    });
+    // Direct query since RPC functions don't exist yet
+    const { data, error } = await supabase
+      .from('external_api_cache')
+      .select('result_data')
+      .eq('query_hash', btoa(query))
+      .gt('expires_at', new Date().toISOString())
+      .single();
 
     if (error || !data) {
       return null;
     }
 
-    return data as ValidationResult;
+    return data.result_data as ValidationResult;
   } catch (error) {
     console.error('Error getting cached result:', error);
     return null;
