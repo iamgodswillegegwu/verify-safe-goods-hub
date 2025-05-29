@@ -21,6 +21,7 @@ export const useAuth = () => {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event, session?.user?.id);
       setUser(session?.user ?? null);
       if (session?.user) {
         await fetchProfile(session.user.id);
@@ -35,6 +36,7 @@ export const useAuth = () => {
 
   const fetchProfile = async (userId: string) => {
     try {
+      console.log('Fetching profile for user:', userId);
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -44,6 +46,7 @@ export const useAuth = () => {
       if (error && error.code !== 'PGRST116') {
         console.error('Error fetching profile:', error);
       } else {
+        console.log('Profile fetched:', data);
         setProfile(data);
       }
     } catch (error) {

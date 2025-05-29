@@ -1,3 +1,4 @@
+
 import { supabase, Product, Verification } from '@/lib/supabase';
 import { SearchFilters } from './productService';
 
@@ -43,12 +44,16 @@ export const getUserPreferences = async (userId: string): Promise<UserPreference
     }, {} as Record<string, number>);
 
     const frequentSearches = Object.entries(searchCounts)
-      .sort(([, a], [, b]) => b - a)
+      .sort(([, a], [, b]) => (b as number) - (a as number))
       .slice(0, 5)
       .map(([query]) => query);
 
-    // Extract favorite categories
-    const categories = favorites?.map(f => f.product?.category?.name).filter(Boolean) || [];
+    // Extract favorite categories - fix the type issue
+    const categories = favorites?.map(f => {
+      const product = f.product as any;
+      return product?.category?.name;
+    }).filter(Boolean) || [];
+    
     const categoryCounts = categories.reduce((acc, category) => {
       if (category) {
         acc[category] = (acc[category] || 0) + 1;
@@ -57,7 +62,7 @@ export const getUserPreferences = async (userId: string): Promise<UserPreference
     }, {} as Record<string, number>);
 
     const favoriteCategories = Object.entries(categoryCounts)
-      .sort(([, a], [, b]) => b - a)
+      .sort(([, a], [, b]) => (b as number) - (a as number))
       .slice(0, 3)
       .map(([category]) => category);
 
@@ -185,8 +190,12 @@ const getRecommendationsBasedOnPreferences = async (
       category:categories(*)
     `)
     .eq('status', 'approved')
-    .not('id', 'in', `(${excludeIds.join(',')})`)
     .limit(limit);
+
+  // Only add the exclusion filter if there are IDs to exclude
+  if (excludeIds.length > 0) {
+    queryBuilder = queryBuilder.not('id', 'in', `(${excludeIds.join(',')})`);
+  }
 
   const { data: products } = await queryBuilder;
 
@@ -241,7 +250,7 @@ export const getRecommendationsByCategory = async (
   excludeIds: string[] = [],
   limit: number = 5
 ): Promise<Product[]> => {
-  const { data: products } = await supabase
+  let queryBuilder = supabase
     .from('products')
     .select(`
       *,
@@ -250,8 +259,13 @@ export const getRecommendationsByCategory = async (
     `)
     .eq('status', 'approved')
     .eq('category.name', categoryName)
-    .not('id', 'in', `(${excludeIds.join(',')})`)
     .limit(limit);
 
+  // Only add the exclusion filter if there are IDs to exclude
+  if (excludeIds.length > 0) {
+    queryBuilder = queryBuilder.not('id', 'in', `(${excludeIds.join(',')})`);
+  }
+
+  const { data: products } = await queryBuilder;
   return products || [];
 };
