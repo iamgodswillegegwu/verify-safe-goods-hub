@@ -26,10 +26,13 @@ export interface ValidationSource {
 }
 
 export interface ValidationResult {
-  isValid: boolean;
+  found: boolean;
+  verified: boolean;
   confidence: number;
-  sources: ValidationSource[];
+  source: string;
   product?: ExternalProduct;
+  alternatives: ExternalProduct[];
+  sources: ValidationSource[];
 }
 
 export interface AggregationFilters {
@@ -111,13 +114,17 @@ export const validateProduct = async (barcode: string): Promise<ExternalProduct 
     };
 };
 
-export const validateProductExternal = async (barcode: string): Promise<ValidationResult> => {
+export const validateProductExternal = async (barcode: string, productName?: string): Promise<ValidationResult> => {
   try {
     const product = await validateProduct(barcode);
     
     return {
-      isValid: product?.verified || false,
+      found: !!product,
+      verified: product?.verified || false,
       confidence: product?.confidence || 0,
+      source: product?.source || 'unknown',
+      product,
+      alternatives: [],
       sources: [
         {
           name: 'OpenFoodFacts',
@@ -125,13 +132,15 @@ export const validateProductExternal = async (barcode: string): Promise<Validati
           verified: product?.verified || false,
           confidence: product?.confidence || 0
         }
-      ],
-      product
+      ]
     };
   } catch (error) {
     return {
-      isValid: false,
+      found: false,
+      verified: false,
       confidence: 0,
+      source: 'unknown',
+      alternatives: [],
       sources: []
     };
   }

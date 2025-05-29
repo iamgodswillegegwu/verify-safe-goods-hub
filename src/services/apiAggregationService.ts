@@ -6,6 +6,9 @@ export interface ValidationStats {
   successRate: number;
   averageConfidence: number;
   sourceBreakdown: Record<string, number>;
+  verifiedProducts: number;
+  riskDistribution: Record<string, number>;
+  topSources: Record<string, number>;
 }
 
 export const getValidationStats = async (): Promise<ValidationStats> => {
@@ -15,6 +18,17 @@ export const getValidationStats = async (): Promise<ValidationStats> => {
     successRate: 0.87,
     averageConfidence: 0.82,
     sourceBreakdown: {
+      'openfoodfacts': 45,
+      'fda': 30,
+      'nafdac': 25
+    },
+    verifiedProducts: 1087,
+    riskDistribution: {
+      'low': 60,
+      'medium': 30,
+      'high': 10
+    },
+    topSources: {
       'openfoodfacts': 45,
       'fda': 30,
       'nafdac': 25

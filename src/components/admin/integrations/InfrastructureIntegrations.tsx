@@ -1,14 +1,14 @@
 
-import GoogleMapsIntegration from './GoogleMapsIntegration';
-import AWSIntegration from './AWSIntegration';
+import GoogleMapsIntegrationComponent from './GoogleMapsIntegration';
+import AWSIntegrationComponent from './AWSIntegration';
 
-interface GoogleMapsIntegration {
+interface GoogleMapsIntegrationType {
   enabled: boolean;
   apiKey: string;
   status: string;
 }
 
-interface AWSIntegration {
+interface AWSIntegrationType {
   enabled: boolean;
   accessKey: string;
   secretKey: string;
@@ -18,8 +18,8 @@ interface AWSIntegration {
 
 interface InfrastructureIntegrationsProps {
   integrations: {
-    googlemaps: GoogleMapsIntegration;
-    aws: AWSIntegration;
+    googlemaps: GoogleMapsIntegrationType;
+    aws: AWSIntegrationType;
   };
   setIntegrations: (fn: (prev: any) => any) => void;
   loading: boolean;
@@ -36,7 +36,7 @@ const InfrastructureIntegrations = ({
 }: InfrastructureIntegrationsProps) => {
   return (
     <div className="space-y-6">
-      <GoogleMapsIntegration
+      <GoogleMapsIntegrationComponent
         integration={integrations.googlemaps}
         setIntegrations={setIntegrations}
         loading={loading}
@@ -44,7 +44,7 @@ const InfrastructureIntegrations = ({
         onTestConnection={onTestConnection}
       />
       
-      <AWSIntegration
+      <AWSIntegrationComponent
         integration={integrations.aws}
         setIntegrations={setIntegrations}
         loading={loading}
