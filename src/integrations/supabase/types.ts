@@ -9,6 +9,45 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      api_stats: {
+        Row: {
+          api_name: string
+          avg_response_time: number | null
+          calls_count: number | null
+          created_at: string | null
+          date: string | null
+          endpoint: string | null
+          error_count: number | null
+          id: string
+          success_count: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          api_name: string
+          avg_response_time?: number | null
+          calls_count?: number | null
+          created_at?: string | null
+          date?: string | null
+          endpoint?: string | null
+          error_count?: number | null
+          id?: string
+          success_count?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          api_name?: string
+          avg_response_time?: number | null
+          calls_count?: number | null
+          created_at?: string | null
+          date?: string | null
+          endpoint?: string | null
+          error_count?: number | null
+          id?: string
+          success_count?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           created_at: string | null
@@ -27,6 +66,33 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+        }
+        Relationships: []
+      }
+      external_api_cache: {
+        Row: {
+          created_at: string | null
+          expires_at: string
+          id: string
+          query_hash: string
+          result_data: Json
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          query_hash: string
+          result_data: Json
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          query_hash?: string
+          result_data?: Json
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -367,6 +433,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      validation_logs: {
+        Row: {
+          confidence: number | null
+          created_at: string | null
+          id: string
+          product_name: string
+          result_summary: string | null
+          risk_level: string | null
+          sources_checked: Json | null
+          user_id: string | null
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string | null
+          id?: string
+          product_name: string
+          result_summary?: string | null
+          risk_level?: string | null
+          sources_checked?: Json | null
+          user_id?: string | null
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string | null
+          id?: string
+          product_name?: string
+          result_summary?: string | null
+          risk_level?: string | null
+          sources_checked?: Json | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
       verifications: {
         Row: {
