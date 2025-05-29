@@ -44,6 +44,8 @@ const UserManagement = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
+      console.log('Fetching users from profiles table...');
+      
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -53,12 +55,13 @@ const UserManagement = () => {
         console.error('Error fetching users:', error);
         toast({
           title: "Error",
-          description: "Failed to fetch users",
+          description: "Failed to fetch users. Please check your permissions.",
           variant: "destructive",
         });
         return;
       }
 
+      console.log('Successfully fetched users:', data?.length || 0);
       setUsers(data || []);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -73,6 +76,7 @@ const UserManagement = () => {
   };
 
   const handleEditUser = (user: User) => {
+    console.log('Editing user:', user.email);
     setSelectedUser(user);
     setEditFormData({
       first_name: user.first_name || '',
@@ -87,6 +91,8 @@ const UserManagement = () => {
     if (!selectedUser) return;
 
     try {
+      console.log('Updating user:', selectedUser.email, 'with data:', editFormData);
+      
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -102,12 +108,13 @@ const UserManagement = () => {
         console.error('Error updating user:', error);
         toast({
           title: "Error",
-          description: "Failed to update user",
+          description: `Failed to update user: ${error.message}`,
           variant: "destructive",
         });
         return;
       }
 
+      console.log('User updated successfully');
       toast({
         title: "Success",
         description: "User updated successfully",
@@ -131,18 +138,25 @@ const UserManagement = () => {
     }
 
     try {
-      const { error } = await supabase.auth.admin.deleteUser(userId);
+      console.log('Attempting to delete user:', userId);
+      
+      // First, try to delete from profiles table
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
 
-      if (error) {
-        console.error('Error deleting user:', error);
+      if (profileError) {
+        console.error('Error deleting user profile:', profileError);
         toast({
           title: "Error",
-          description: "Failed to delete user",
+          description: `Failed to delete user: ${profileError.message}`,
           variant: "destructive",
         });
         return;
       }
 
+      console.log('User deleted successfully');
       toast({
         title: "Success",
         description: "User deleted successfully",
