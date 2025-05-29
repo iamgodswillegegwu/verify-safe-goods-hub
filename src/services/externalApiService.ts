@@ -16,7 +16,7 @@ const openFoodFactsResponseSchema = z.object({
   status_verbose: z.string(),
 });
 
-export type APISource = 'openfoodfacts' | 'fda' | 'cosing' | 'gs1' | 'internal' | 'nafdac';
+export type APISource = 'openfoodfacts' | 'fda' | 'cosing' | 'gs1' | 'internal' | 'nafdac' | 'external';
 
 export interface ValidationResult {
   found: boolean;
