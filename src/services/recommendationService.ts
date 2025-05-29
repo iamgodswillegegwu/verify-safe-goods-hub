@@ -1,4 +1,3 @@
-
 import { supabase, Product, Verification } from '@/lib/supabase';
 import { SearchFilters } from './productService';
 
@@ -7,6 +6,73 @@ export interface RecommendationScore {
   score: number;
   reasons: string[];
 }
+
+export interface UserPreferences {
+  frequentSearches: string[];
+  favoriteCategories: string[];
+}
+
+export const getUserPreferences = async (userId: string): Promise<UserPreferences> => {
+  try {
+    // Get user's recent search queries from verifications
+    const { data: verifications } = await supabase
+      .from('verifications')
+      .select('search_query')
+      .eq('user_id', userId)
+      .not('search_query', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    // Get user's favorite products to determine categories
+    const { data: favorites } = await supabase
+      .from('user_favorites')
+      .select(`
+        product:products(
+          category:categories(name)
+        )
+      `)
+      .eq('user_id', userId);
+
+    // Extract frequent searches
+    const searchQueries = verifications?.map(v => v.search_query).filter(Boolean) || [];
+    const searchCounts = searchQueries.reduce((acc, query) => {
+      if (query) {
+        acc[query] = (acc[query] || 0) + 1;
+      }
+      return acc;
+    }, {} as Record<string, number>);
+
+    const frequentSearches = Object.entries(searchCounts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([query]) => query);
+
+    // Extract favorite categories
+    const categories = favorites?.map(f => f.product?.category?.name).filter(Boolean) || [];
+    const categoryCounts = categories.reduce((acc, category) => {
+      if (category) {
+        acc[category] = (acc[category] || 0) + 1;
+      }
+      return acc;
+    }, {} as Record<string, number>);
+
+    const favoriteCategories = Object.entries(categoryCounts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 3)
+      .map(([category]) => category);
+
+    return {
+      frequentSearches,
+      favoriteCategories
+    };
+  } catch (error) {
+    console.error('Error getting user preferences:', error);
+    return {
+      frequentSearches: [],
+      favoriteCategories: []
+    };
+  }
+};
 
 export const getPersonalizedRecommendations = async (
   userId: string, 
