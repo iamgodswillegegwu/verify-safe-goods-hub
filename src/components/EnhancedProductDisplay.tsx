@@ -1,4 +1,3 @@
-
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -22,6 +21,25 @@ interface EnhancedProductDisplayProps {
   similarProducts?: any[];
 }
 
+const getCertifyingOrganization = (source: string, data: any) => {
+  switch (source) {
+    case 'fda':
+      return 'FDA (United States)';
+    case 'nafdac':
+      return 'NAFDAC (Nigeria)';
+    case 'openfoodfacts':
+      return 'Open Food Facts (Global)';
+    case 'cosing':
+      return 'CosIng (European Union)';
+    case 'gs1':
+      return 'GS1 (Global)';
+    case 'internal':
+      return data?.certifying_organization || 'Internal Database';
+    default:
+      return 'Not Found or Missing';
+  }
+};
+
 const EnhancedProductDisplay = ({ result, similarProducts = [] }: EnhancedProductDisplayProps) => {
   const isExternal = !!result.externalData;
   const productData = result.externalData || result.product;
@@ -37,15 +55,51 @@ const EnhancedProductDisplay = ({ result, similarProducts = [] }: EnhancedProduc
     }
   };
 
-  const getCertifyingOrganization = (source?: string) => {
-    switch (source?.toLowerCase()) {
-      case 'openfoodfacts': return 'Open Food Facts';
-      case 'fda': return 'FDA (Food and Drug Administration)';
-      case 'cosing': return 'CosIng (EU Cosmetics Database)';
-      case 'gs1': return 'GS1 Global Standards';
-      case 'internal': return 'Internal Database';
-      default: return source?.toUpperCase() || 'Not found or Missing';
+  const getCountriesAvailable = (countries: any) => {
+    if (Array.isArray(countries)) {
+      return countries.join(', ');
     }
+    return countries;
+  };
+
+  const formatDate = (date: any) => {
+    if (date) {
+      return new Date(date).toLocaleDateString();
+    }
+    return 'N/A';
+  };
+
+  const renderProductCard = (product: any, index: number) => {
+    return (
+      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+        <div className="flex items-center gap-3">
+          {product.imageUrl && (
+            <img 
+              src={product.imageUrl} 
+              alt={product.name}
+              className="w-10 h-10 rounded object-cover"
+              onError={(e) => {
+                e.currentTarget.src = '/placeholder.svg';
+              }}
+            />
+          )}
+          <div>
+            <p className="font-medium text-sm">{product.name}</p>
+            <p className="text-xs text-gray-600">by {formatValue(product.manufacturer || product.brand)}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {product.nutriScore && (
+            <Badge className={getNutriScoreColor(product.nutriScore)}>
+              {product.nutriScore}
+            </Badge>
+          )}
+          <Badge variant="outline">
+            {product.source === 'external' ? 'External' : 'Verified'}
+          </Badge>
+        </div>
+      </div>
+    );
   };
 
   const formatValue = (value: any, fallback = "Not found or Missing") => {
@@ -228,12 +282,12 @@ const EnhancedProductDisplay = ({ result, similarProducts = [] }: EnhancedProduc
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Countries Available:</span>
-                    <span className="font-medium text-right">{formatValue(productData?.country || productData?.countries)}</span>
+                    <span className="font-medium text-right">{getCountriesAvailable(productData?.country || productData?.countries)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Manufacturing Date:</span>
                     <span className="font-medium text-right">
-                      {formatValue(
+                      {formatDate(
                         productData?.manufacturing_date ? 
                           new Date(productData.manufacturing_date).toLocaleDateString() : 
                           null
@@ -243,7 +297,7 @@ const EnhancedProductDisplay = ({ result, similarProducts = [] }: EnhancedProduc
                   <div className="flex justify-between">
                     <span className="text-gray-600">Date Registered:</span>
                     <span className="font-medium text-right">
-                      {formatValue(
+                      {formatDate(
                         result.registrationDate !== 'N/A' ? result.registrationDate :
                         productData?.created_at ? new Date(productData.created_at).toLocaleDateString() : null
                       )}
@@ -252,7 +306,7 @@ const EnhancedProductDisplay = ({ result, similarProducts = [] }: EnhancedProduc
                   <div className="flex justify-between">
                     <span className="text-gray-600">Date Approved:</span>
                     <span className="font-medium text-right">
-                      {formatValue(
+                      {formatDate(
                         productData?.updated_at ? 
                           new Date(productData.updated_at).toLocaleDateString() : 
                           null
@@ -274,7 +328,7 @@ const EnhancedProductDisplay = ({ result, similarProducts = [] }: EnhancedProduc
                   <div className="flex justify-between">
                     <span className="text-gray-600">Registration Body:</span>
                     <span className="font-medium text-right">
-                      {getCertifyingOrganization(productData?.source || 'internal')}
+                      {getCertifyingOrganization(productData?.source || 'internal', productData)}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -339,47 +393,49 @@ const EnhancedProductDisplay = ({ result, similarProducts = [] }: EnhancedProduc
         </CardContent>
       </Card>
 
-      {/* Similar Products (if any) */}
-      {similarProducts && similarProducts.length > 0 && (
+      {/* Similar Products Section */}
+      {similarProducts.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Star className="h-5 w-5 text-blue-600" />
-              Related Products Found
+              <Search className="h-5 w-5 text-blue-600" />
+              {result.isVerified ? 'Related Products' : 'Verified Alternative Products'}
             </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-3">
-              {similarProducts.slice(0, 5).map((product: any, index: number) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    {product.imageUrl && (
-                      <img 
-                        src={product.imageUrl} 
-                        alt={product.name}
-                        className="w-10 h-10 rounded object-cover"
-                        onError={(e) => {
-                          e.currentTarget.src = '/placeholder.svg';
-                        }}
-                      />
-                    )}
-                    <div>
-                      <p className="font-medium text-sm">{product.name}</p>
-                      <p className="text-xs text-gray-600">by {formatValue(product.manufacturer || product.brand)}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {product.nutriScore && (
-                      <Badge className={getNutriScoreColor(product.nutriScore)}>
-                        {product.nutriScore}
-                      </Badge>
-                    )}
-                    <Badge variant="outline">
-                      {product.source === 'external' ? 'External' : 'Verified'}
-                    </Badge>
+            {!result.isVerified && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium text-yellow-800">Product Not Verified</p>
+                    <p className="text-sm text-yellow-700 mt-1">
+                      The product you're searching for cannot be found in our verified databases. 
+                      Please consider the following verified alternatives with similar names or contents.
+                    </p>
                   </div>
                 </div>
-              ))}
+              </div>
+            )}
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {similarProducts.map((product, index) => renderProductCard(product, index))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* NAFDAC Notice for Nigerian Products */}
+      {(result.externalData?.source === 'nafdac' || similarProducts.some(p => p.source === 'nafdac')) && (
+        <Card className="bg-green-50 border-green-200">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <Shield className="h-5 w-5 text-green-600" />
+              <div>
+                <p className="font-medium text-green-800">NAFDAC Verified Product</p>
+                <p className="text-sm text-green-700">
+                  This product is registered with the National Agency for Food and Drug Administration and Control (NAFDAC) of Nigeria.
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>

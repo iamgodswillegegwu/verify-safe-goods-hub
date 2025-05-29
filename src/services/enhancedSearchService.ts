@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { 
   searchProductsQuick, 
@@ -27,7 +26,7 @@ export interface EnhancedSearchResult {
   combined: any[];
 }
 
-// Map internal categories to external API categories
+// Map internal categories to external API categories - updated to include NAFDAC
 const getCategoryMapping = (category: string): string => {
   const mappings: Record<string, string> = {
     'Cosmetics': 'cosmetics',
@@ -44,7 +43,7 @@ const getCategoryMapping = (category: string): string => {
   return mappings[category] || 'food';
 };
 
-// Enhanced search that queries both internal and external APIs with filters
+// Enhanced search that queries both internal and external APIs with filters - updated to include NAFDAC
 export const performEnhancedSearch = async (
   query: string,
   filters: EnhancedSearchFilters = {},
@@ -95,7 +94,7 @@ export const performEnhancedSearch = async (
       console.error('Internal search error:', internalError);
     }
 
-    // Perform external API search with category mapping
+    // Perform external API search with category mapping - updated to include NAFDAC
     let externalProducts: ExternalProduct[] = [];
     
     if (query.trim()) {
@@ -103,7 +102,7 @@ export const performEnhancedSearch = async (
       
       // Search external APIs based on category
       if (!mappedCategory || mappedCategory === 'food') {
-        const foodResults = await searchProductsQuick(query, Math.ceil(limit / 2));
+        const foodResults = await searchProductsQuick(query, Math.ceil(limit / 3));
         externalProducts.push(...foodResults);
       }
       
@@ -131,6 +130,43 @@ export const performEnhancedSearch = async (
             imageUrl: '/placeholder.svg'
           });
         }
+      }
+
+      // Always search NAFDAC for Nigerian products (covers all categories)
+      try {
+        const nafdacResponse = await fetch('https://flyvlvtvgvfybtnuntsd.supabase.co/functions/v1/nafdac-scraper', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZseXZsdnR2Z3ZmeWJ0bnVudHNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1NDQ5MTgsImV4cCI6MjA2NDEyMDkxOH0.iGlfXJUM6EZUwE_s0ipn6LR4ZkgK3d2hojRs5m_xo-g`,
+          },
+          body: JSON.stringify({
+            searchQuery: query,
+            limit: Math.ceil(limit / 4)
+          })
+        });
+
+        const nafdacData = await nafdacResponse.json();
+        if (nafdacData.found && nafdacData.products) {
+          nafdacData.products.forEach((product: any) => {
+            externalProducts.push({
+              id: product.id,
+              name: product.name,
+              brand: product.manufacturer,
+              category: product.category,
+              verified: product.verified,
+              source: 'nafdac',
+              data: {
+                ...product,
+                certifyingOrganization: 'NAFDAC (Nigeria)',
+                country: 'Nigeria'
+              },
+              imageUrl: '/placeholder.svg'
+            });
+          });
+        }
+      } catch (nafdacError) {
+        console.error('Error searching NAFDAC:', nafdacError);
       }
     }
 

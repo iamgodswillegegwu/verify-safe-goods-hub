@@ -1,4 +1,3 @@
-
 // External API integration service for real-time product validation
 import { supabase } from '@/integrations/supabase/client';
 
@@ -166,7 +165,51 @@ export const validateBarcode = async (barcode: string): Promise<boolean> => {
   }
 };
 
-// Main validation orchestrator
+// NAFDAC scraping service using our Edge Function
+export const searchNAFDAC = async (productName: string): Promise<ExternalProduct | null> => {
+  try {
+    const response = await fetch('https://flyvlvtvgvfybtnuntsd.supabase.co/functions/v1/nafdac-scraper', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZseXZsdnR2Z3ZmeWJ0bnVudHNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1NDQ5MTgsImV4cCI6MjA2NDEyMDkxOH0.iGlfXJUM6EZUwE_s0ipn6LR4ZkgK3d2hojRs5m_xo-g'}`,
+      },
+      body: JSON.stringify({
+        searchQuery: productName,
+        limit: 5
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.found && data.products && data.products.length > 0) {
+      const product = data.products[0];
+      return {
+        id: product.id || Date.now().toString(),
+        name: product.name || 'Unknown Product',
+        brand: product.manufacturer || 'NAFDAC Verified',
+        category: product.category || 'general',
+        verified: product.verified || true,
+        source: 'nafdac',
+        data: {
+          registrationNumber: product.registrationNumber,
+          registrationDate: product.registrationDate,
+          status: product.status,
+          certifyingOrganization: 'NAFDAC (Nigeria)',
+          country: 'Nigeria'
+        },
+        ingredients: []
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error searching NAFDAC:', error);
+    return null;
+  }
+};
+
+// Main validation orchestrator - updated to include NAFDAC
 export const validateProductExternal = async (
   productName: string,
   barcode?: string,
@@ -214,6 +257,13 @@ export const validateProductExternal = async (
         results.push(cosmeticResult);
         if (!mainProduct) mainProduct = cosmeticResult;
       }
+    }
+
+    // Always search NAFDAC for Nigerian products - covers all categories
+    const nafdacResult = await searchNAFDAC(productName);
+    if (nafdacResult) {
+      results.push(nafdacResult);
+      if (!mainProduct) mainProduct = nafdacResult;
     }
 
     // Calculate confidence based on number of sources and data quality
@@ -286,7 +336,7 @@ export const getCachedResult = async (query: string): Promise<ValidationResult |
   }
 };
 
-// Quick search for auto-suggestions
+// Quick search for auto-suggestions - updated to include NAFDAC
 export const searchProductsQuick = async (query: string, limit: number = 5): Promise<ExternalProduct[]> => {
   if (!query || query.length < 2) return [];
 
@@ -295,12 +345,12 @@ export const searchProductsQuick = async (query: string, limit: number = 5): Pro
   try {
     // Search Open Food Facts for quick suggestions
     const response = await fetch(
-      `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1&page_size=${limit}`
+      `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1&page_size=${Math.ceil(limit/2)}`
     );
     const data = await response.json();
 
     if (data.products && data.products.length > 0) {
-      data.products.slice(0, limit).forEach((product: any) => {
+      data.products.slice(0, Math.ceil(limit/2)).forEach((product: any) => {
         results.push({
           id: product.code || Date.now().toString(),
           name: product.product_name || 'Unknown Product',
@@ -314,9 +364,38 @@ export const searchProductsQuick = async (query: string, limit: number = 5): Pro
         });
       });
     }
+
+    // Also search NAFDAC for quick suggestions
+    const nafdacResponse = await fetch('https://flyvlvtvgvfybtnuntsd.supabase.co/functions/v1/nafdac-scraper', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZseXZsdnR2Z3ZmeWJ0bnVudHNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1NDQ5MTgsImV4cCI6MjA2NDEyMDkxOH0.iGlfXJUM6EZUwE_s0ipn6LR4ZkgK3d2hojRs5m_xo-g`,
+      },
+      body: JSON.stringify({
+        searchQuery: query,
+        limit: Math.ceil(limit/2)
+      })
+    });
+
+    const nafdacData = await nafdacResponse.json();
+    if (nafdacData.found && nafdacData.products) {
+      nafdacData.products.forEach((product: any) => {
+        results.push({
+          id: product.id,
+          name: product.name,
+          brand: product.manufacturer,
+          category: product.category,
+          verified: product.verified,
+          source: 'nafdac',
+          data: product,
+          imageUrl: '/placeholder.svg'
+        });
+      });
+    }
   } catch (error) {
     console.error('Error in quick search:', error);
   }
 
-  return results;
+  return results.slice(0, limit);
 };
