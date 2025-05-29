@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Filter, MapPin, Tag, Award } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,13 +35,14 @@ const SearchFilters = ({ filters, onFiltersChange }: SearchFiltersProps) => {
 
   const nutriScoreOptions = ['A', 'B', 'C', 'D', 'E'];
 
-  // Enhanced location options that include common external API regions
+  // Enhanced location options that include Nigeria and other common external API regions
   const enhancedCountries = [
-    'United States', 'Canada', 'United Kingdom', 'France', 'Germany',
+    'Nigeria', 'United States', 'Canada', 'United Kingdom', 'France', 'Germany',
     'Italy', 'Spain', 'Australia', 'Japan', 'South Korea', 'Brazil'
   ];
 
   const enhancedStates = [
+    'Lagos', 'Abuja', 'Kano', 'Rivers', 'Oyo', 'Delta', 'Kaduna', 'Ogun',
     'California', 'New York', 'Texas', 'Florida', 'Illinois',
     'Pennsylvania', 'Ohio', 'Georgia', 'North Carolina', 'Michigan'
   ];
