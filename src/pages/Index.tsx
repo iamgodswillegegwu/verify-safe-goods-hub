@@ -1,11 +1,13 @@
 
-import { useState } from 'react';
-import { Camera, Search, Shield, Users, BarChart3, Star, CheckCircle, AlertTriangle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Camera, Search, Shield, Users, BarChart3, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
+import { verifyProduct, getSimilarProducts } from '@/services/productService';
+import { useToast } from '@/hooks/use-toast';
 import Navigation from '@/components/Navigation';
 import Hero from '@/components/Hero';
 import ProductScanner from '@/components/ProductScanner';
@@ -16,33 +18,74 @@ const Index = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [verificationResult, setVerificationResult] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     
-    // Simulate API call for product verification
+    setIsLoading(true);
     console.log('Searching for product:', searchQuery);
     
-    // Mock verification result
-    const mockResult = {
-      productName: searchQuery,
-      isVerified: Math.random() > 0.5,
-      manufacturer: 'Sample Manufacturer',
-      registrationDate: '2024-01-15',
-      certificationNumber: 'CERT-2024-001',
-      similarProducts: [
-        { name: 'Similar Product 1', manufacturer: 'Verified Brand A', verified: true },
-        { name: 'Similar Product 2', manufacturer: 'Verified Brand B', verified: true },
-      ]
-    };
-    
-    setVerificationResult(mockResult);
+    try {
+      const verification = await verifyProduct(searchQuery, user?.id);
+      
+      let similarProducts = [];
+      if (verification.result !== 'verified') {
+        similarProducts = await getSimilarProducts(searchQuery);
+      }
+
+      const result = {
+        productName: searchQuery,
+        isVerified: verification.result === 'verified',
+        manufacturer: verification.product?.manufacturer?.company_name || 'Unknown',
+        registrationDate: verification.product?.created_at ? 
+          new Date(verification.product.created_at).toLocaleDateString() : 'N/A',
+        certificationNumber: verification.product?.certification_number || 'N/A',
+        similarProducts: similarProducts.map(p => ({
+          name: p.name,
+          manufacturer: p.manufacturer?.company_name || 'Unknown',
+          verified: true
+        }))
+      };
+      
+      setVerificationResult(result);
+
+      // Show toast notification
+      if (verification.result === 'verified') {
+        toast({
+          title: "Product Verified! ✓",
+          description: "This product is authentic and safe to use.",
+        });
+      } else {
+        toast({
+          title: "Product Not Found",
+          description: "This product is not in our verified database.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error verifying product:', error);
+      toast({
+        title: "Error",
+        description: "Failed to verify product. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleScanResult = (result) => {
+  const handleScanResult = async (result) => {
     setVerificationResult(result);
     setIsScanning(false);
+    
+    // If this was a real scan, we would verify it the same way
+    if (result.productName) {
+      await handleSearch();
+    }
   };
 
   return (
@@ -82,13 +125,19 @@ const Index = () => {
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="flex-1 border-blue-200 focus:border-blue-400"
-                        onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                        onKeyPress={(e) => e.key === 'Enter' && !isLoading && handleSearch()}
+                        disabled={isLoading}
                       />
                       <Button 
                         onClick={handleSearch}
                         className="bg-blue-600 hover:bg-blue-700 text-white"
+                        disabled={isLoading || !searchQuery.trim()}
                       >
-                        <Search className="h-4 w-4" />
+                        {isLoading ? (
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        ) : (
+                          <Search className="h-4 w-4" />
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -103,6 +152,7 @@ const Index = () => {
                       onClick={() => setIsScanning(!isScanning)}
                       variant="outline"
                       className="w-full border-green-200 text-green-700 hover:bg-green-50"
+                      disabled={isLoading}
                     >
                       <Camera className="h-4 w-4 mr-2" />
                       {isScanning ? 'Stop Scanner' : 'Start Scanner'}

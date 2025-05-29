@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 import Navigation from '@/components/Navigation';
 
 const Signup = () => {
@@ -23,13 +25,64 @@ const Signup = () => {
     acceptTerms: false,
     receiveUpdates: false
   });
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { signUp } = useAuth();
+  const { toast } = useToast();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Signup attempt:', formData);
-    // Here you would integrate with your authentication system
-    navigate('/');
+    
+    if (formData.password !== formData.confirmPassword) {
+      toast({
+        title: "Password Mismatch",
+        description: "Passwords do not match. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.acceptTerms) {
+      toast({
+        title: "Terms Required",
+        description: "Please accept the terms of service to continue.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      const { error } = await signUp(formData.email, formData.password, {
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        phone: formData.phone,
+        receive_updates: formData.receiveUpdates
+      });
+      
+      if (error) {
+        toast({
+          title: "Sign Up Failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Account Created!",
+          description: "Please check your email to verify your account.",
+        });
+        navigate('/login');
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleInputChange = (field, value) => {
@@ -67,6 +120,7 @@ const Signup = () => {
                       onChange={(e) => handleInputChange('firstName', e.target.value)}
                       className="pl-10 border-slate-300 focus:border-blue-400"
                       required
+                      disabled={isLoading}
                     />
                   </div>
                 </div>
@@ -81,6 +135,7 @@ const Signup = () => {
                     onChange={(e) => handleInputChange('lastName', e.target.value)}
                     className="border-slate-300 focus:border-blue-400"
                     required
+                    disabled={isLoading}
                   />
                 </div>
               </div>
@@ -97,6 +152,7 @@ const Signup = () => {
                     onChange={(e) => handleInputChange('email', e.target.value)}
                     className="pl-10 border-slate-300 focus:border-blue-400"
                     required
+                    disabled={isLoading}
                   />
                 </div>
               </div>
@@ -113,6 +169,7 @@ const Signup = () => {
                     onChange={(e) => handleInputChange('phone', e.target.value)}
                     className="pl-10 border-slate-300 focus:border-blue-400"
                     required
+                    disabled={isLoading}
                   />
                 </div>
               </div>
@@ -129,6 +186,7 @@ const Signup = () => {
                     onChange={(e) => handleInputChange('password', e.target.value)}
                     className="pl-10 pr-10 border-slate-300 focus:border-blue-400"
                     required
+                    disabled={isLoading}
                   />
                   <Button
                     type="button"
@@ -136,6 +194,7 @@ const Signup = () => {
                     size="sm"
                     className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
                     onClick={() => setShowPassword(!showPassword)}
+                    disabled={isLoading}
                   >
                     {showPassword ? (
                       <EyeOff className="h-4 w-4 text-slate-400" />
@@ -158,6 +217,7 @@ const Signup = () => {
                     onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
                     className="pl-10 pr-10 border-slate-300 focus:border-blue-400"
                     required
+                    disabled={isLoading}
                   />
                   <Button
                     type="button"
@@ -165,6 +225,7 @@ const Signup = () => {
                     size="sm"
                     className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    disabled={isLoading}
                   >
                     {showConfirmPassword ? (
                       <EyeOff className="h-4 w-4 text-slate-400" />
@@ -183,6 +244,7 @@ const Signup = () => {
                     onCheckedChange={(checked) => handleInputChange('acceptTerms', checked)}
                     className="mt-1"
                     required
+                    disabled={isLoading}
                   />
                   <Label htmlFor="acceptTerms" className="text-sm text-slate-600 leading-5">
                     I agree to the <Button variant="link" className="p-0 h-auto text-blue-600 hover:text-blue-700">Terms of Service</Button> and <Button variant="link" className="p-0 h-auto text-blue-600 hover:text-blue-700">Privacy Policy</Button>
@@ -195,6 +257,7 @@ const Signup = () => {
                     checked={formData.receiveUpdates}
                     onCheckedChange={(checked) => handleInputChange('receiveUpdates', checked)}
                     className="mt-1"
+                    disabled={isLoading}
                   />
                   <Label htmlFor="receiveUpdates" className="text-sm text-slate-600 leading-5">
                     I would like to receive product updates and safety alerts via email
@@ -206,9 +269,16 @@ const Signup = () => {
                 type="submit" 
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3"
                 size="lg"
-                disabled={!formData.acceptTerms}
+                disabled={!formData.acceptTerms || isLoading}
               >
-                Create Account
+                {isLoading ? (
+                  <div className="flex items-center">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
+                    Creating Account...
+                  </div>
+                ) : (
+                  'Create Account'
+                )}
               </Button>
             </form>
 

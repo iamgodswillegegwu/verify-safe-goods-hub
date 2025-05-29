@@ -7,6 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 import Navigation from '@/components/Navigation';
 
 const Login = () => {
@@ -15,14 +17,40 @@ const Login = () => {
     email: '',
     password: ''
   });
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { signIn } = useAuth();
+  const { toast } = useToast();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Login attempt:', formData);
-    // Here you would integrate with your authentication system
-    // For now, we'll just navigate to the dashboard
-    navigate('/');
+    setIsLoading(true);
+    
+    try {
+      const { error } = await signIn(formData.email, formData.password);
+      
+      if (error) {
+        toast({
+          title: "Sign In Failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Welcome back!",
+          description: "You have been signed in successfully.",
+        });
+        navigate('/');
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleInputChange = (field, value) => {
@@ -59,6 +87,7 @@ const Login = () => {
                     onChange={(e) => handleInputChange('email', e.target.value)}
                     className="pl-10 border-slate-300 focus:border-blue-400"
                     required
+                    disabled={isLoading}
                   />
                 </div>
               </div>
@@ -75,6 +104,7 @@ const Login = () => {
                     onChange={(e) => handleInputChange('password', e.target.value)}
                     className="pl-10 pr-10 border-slate-300 focus:border-blue-400"
                     required
+                    disabled={isLoading}
                   />
                   <Button
                     type="button"
@@ -82,6 +112,7 @@ const Login = () => {
                     size="sm"
                     className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
                     onClick={() => setShowPassword(!showPassword)}
+                    disabled={isLoading}
                   >
                     {showPassword ? (
                       <EyeOff className="h-4 w-4 text-slate-400" />
@@ -112,8 +143,16 @@ const Login = () => {
                 type="submit" 
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3"
                 size="lg"
+                disabled={isLoading}
               >
-                Sign In
+                {isLoading ? (
+                  <div className="flex items-center">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
+                    Signing In...
+                  </div>
+                ) : (
+                  'Sign In'
+                )}
               </Button>
             </form>
 
