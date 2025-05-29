@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Eye, EyeOff, Shield, Mail, Lock, User, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,19 +11,20 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import Navigation from '@/components/Navigation';
+import PasswordStrengthIndicator from '@/components/PasswordStrengthIndicator';
 
 const Signup = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isPasswordValid, setIsPasswordValid] = useState(false);
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
     email: '',
-    phone: '',
     password: '',
     confirmPassword: '',
-    acceptTerms: false,
-    receiveUpdates: false
+    firstName: '',
+    lastName: '',
+    phone: '',
+    agreeToTerms: false
   });
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
@@ -32,6 +34,15 @@ const Signup = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!formData.agreeToTerms) {
+      toast({
+        title: "Terms Required",
+        description: "You must agree to the terms and conditions to continue.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       toast({
         title: "Password Mismatch",
@@ -41,10 +52,10 @@ const Signup = () => {
       return;
     }
 
-    if (!formData.acceptTerms) {
+    if (!isPasswordValid) {
       toast({
-        title: "Terms Required",
-        description: "Please accept the terms of service to continue.",
+        title: "Weak Password",
+        description: "Please choose a stronger password that meets our security requirements.",
         variant: "destructive",
       });
       return;
@@ -56,8 +67,7 @@ const Signup = () => {
       const { error } = await signUp(formData.email, formData.password, {
         first_name: formData.firstName,
         last_name: formData.lastName,
-        phone: formData.phone,
-        receive_updates: formData.receiveUpdates
+        phone: formData.phone
       });
       
       if (error) {
@@ -71,7 +81,7 @@ const Signup = () => {
           title: "Account Created!",
           description: "Please check your email to verify your account.",
         });
-        navigate('/login');
+        navigate('/dashboard');
       }
     } catch (error) {
       toast({
@@ -107,7 +117,7 @@ const Signup = () => {
     }
   };
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -116,14 +126,14 @@ const Signup = () => {
       <Navigation />
       
       <main className="container mx-auto px-4 py-12 flex items-center justify-center min-h-[calc(100vh-4rem)]">
-        <Card className="w-full max-w-lg shadow-2xl border-0">
+        <Card className="w-full max-w-md shadow-2xl border-0">
           <CardHeader className="text-center space-y-4">
             <div className="flex justify-center">
               <Shield className="h-12 w-12 text-blue-600" />
             </div>
-            <CardTitle className="text-2xl font-bold text-slate-800">Create Your Account</CardTitle>
+            <CardTitle className="text-2xl font-bold text-slate-800">Create Account</CardTitle>
             <CardDescription className="text-slate-600">
-              Join SafeGoods and start verifying products for safety and authenticity
+              Join SafeGoods to start verifying products and protecting yourself from counterfeits
             </CardDescription>
           </CardHeader>
 
@@ -149,16 +159,19 @@ const Signup = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="lastName" className="text-slate-700 font-medium">Last Name</Label>
-                  <Input
-                    id="lastName"
-                    type="text"
-                    placeholder="Last name"
-                    value={formData.lastName}
-                    onChange={(e) => handleInputChange('lastName', e.target.value)}
-                    className="border-slate-300 focus:border-blue-400"
-                    required
-                    disabled={isLoading}
-                  />
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Input
+                      id="lastName"
+                      type="text"
+                      placeholder="Last name"
+                      value={formData.lastName}
+                      onChange={(e) => handleInputChange('lastName', e.target.value)}
+                      className="pl-10 border-slate-300 focus:border-blue-400"
+                      required
+                      disabled={isLoading}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -180,7 +193,7 @@ const Signup = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="phone" className="text-slate-700 font-medium">Phone Number</Label>
+                <Label htmlFor="phone" className="text-slate-700 font-medium">Phone Number (Optional)</Label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
@@ -190,7 +203,6 @@ const Signup = () => {
                     value={formData.phone}
                     onChange={(e) => handleInputChange('phone', e.target.value)}
                     className="pl-10 border-slate-300 focus:border-blue-400"
-                    required
                     disabled={isLoading}
                   />
                 </div>
@@ -203,7 +215,7 @@ const Signup = () => {
                   <Input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
-                    placeholder="Create a password"
+                    placeholder="Create a strong password"
                     value={formData.password}
                     onChange={(e) => handleInputChange('password', e.target.value)}
                     className="pl-10 pr-10 border-slate-300 focus:border-blue-400"
@@ -225,6 +237,10 @@ const Signup = () => {
                     )}
                   </Button>
                 </div>
+                <PasswordStrengthIndicator 
+                  password={formData.password} 
+                  onValidityChange={setIsPasswordValid}
+                />
               </div>
 
               <div className="space-y-2">
@@ -258,40 +274,30 @@ const Signup = () => {
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <div className="flex items-start space-x-2">
-                  <Checkbox 
-                    id="acceptTerms"
-                    checked={formData.acceptTerms}
-                    onCheckedChange={(checked) => handleInputChange('acceptTerms', checked)}
-                    className="mt-1"
-                    required
-                    disabled={isLoading}
-                  />
-                  <Label htmlFor="acceptTerms" className="text-sm text-slate-600 leading-5">
-                    I agree to the <Button variant="link" className="p-0 h-auto text-blue-600 hover:text-blue-700">Terms of Service</Button> and <Button variant="link" className="p-0 h-auto text-blue-600 hover:text-blue-700">Privacy Policy</Button>
-                  </Label>
-                </div>
-
-                <div className="flex items-start space-x-2">
-                  <Checkbox 
-                    id="receiveUpdates"
-                    checked={formData.receiveUpdates}
-                    onCheckedChange={(checked) => handleInputChange('receiveUpdates', checked)}
-                    className="mt-1"
-                    disabled={isLoading}
-                  />
-                  <Label htmlFor="receiveUpdates" className="text-sm text-slate-600 leading-5">
-                    I would like to receive product updates and safety alerts via email
-                  </Label>
-                </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="terms"
+                  checked={formData.agreeToTerms}
+                  onCheckedChange={(checked) => handleInputChange('agreeToTerms', checked as boolean)}
+                  disabled={isLoading}
+                />
+                <Label htmlFor="terms" className="text-sm text-slate-600">
+                  I agree to the{' '}
+                  <Button variant="link" className="text-blue-600 hover:text-blue-700 p-0 h-auto">
+                    Terms of Service
+                  </Button>
+                  {' '}and{' '}
+                  <Button variant="link" className="text-blue-600 hover:text-blue-700 p-0 h-auto">
+                    Privacy Policy
+                  </Button>
+                </Label>
               </div>
 
               <Button 
                 type="submit" 
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3"
                 size="lg"
-                disabled={!formData.acceptTerms || isLoading}
+                disabled={isLoading || !isPasswordValid || !formData.agreeToTerms}
               >
                 {isLoading ? (
                   <div className="flex items-center">
@@ -307,7 +313,7 @@ const Signup = () => {
             <div className="relative">
               <Separator />
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="bg-white px-3 text-sm text-slate-500">or sign up with</span>
+                <span className="bg-white px-3 text-sm text-slate-500">or continue with</span>
               </div>
             </div>
 
