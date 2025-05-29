@@ -1,12 +1,14 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { 
   validateProductExternal, 
   ValidationResult, 
   ExternalProduct,
-  cacheExternalResult,
-  getCachedResult 
+  APISource,
+  getCachedResult,
+  cacheResult as cacheExternalResult
 } from './externalApiService';
+import { performInternalSearch } from './search/internalSearchService';
+import { getEnhancedValidation } from './search/enhancedValidationService';
 
 export interface AggregatedValidationResult {
   productName: string;
@@ -23,6 +25,20 @@ export interface AggregatedValidationResult {
   recommendations: string[];
   riskLevel: 'low' | 'medium' | 'high';
   summary: string;
+}
+
+export interface AggregatedResult {
+  products: ExternalProduct[];
+  totalCount: number;
+  sources: APISource[];
+  confidence: number;
+  searchMetadata: {
+    query: string;
+    filters: AggregationFilters;
+    timestamp: string;
+    internalCount: number;
+    externalCount: number;
+  };
 }
 
 export const performAggregatedValidation = async (
@@ -237,6 +253,80 @@ export const getValidationStats = async (): Promise<{
       verifiedProducts: 0,
       riskDistribution: {},
       topSources: {}
+    };
+  }
+};
+
+export const aggregateProductData = async (
+  query: string,
+  filters: AggregationFilters = {}
+): Promise<AggregatedResult> => {
+  console.log('Starting product data aggregation for:', query);
+
+  try {
+    // Perform searches in parallel
+    const [internalResult, externalResult] = await Promise.allSettled([
+      performInternalSearch(query, filters, 5),
+      validateProductExternal(query, undefined, filters.category)
+    ]);
+
+    // Process internal results
+    const internalProducts = internalResult.status === 'fulfilled' 
+      ? internalResult.value.products 
+      : [];
+
+    // Process external results
+    const externalData = externalResult.status === 'fulfilled' 
+      ? externalResult.value 
+      : null;
+
+    // Combine products and sources
+    const combinedProducts = internalProducts.concat(externalData?.product ? [externalData.product] : []);
+    const activeSources = [
+      ...internalResult.status === 'fulfilled' ? internalResult.value.sources : [],
+      ...externalResult.status === 'fulfilled' ? externalResult.value.sources : []
+    ];
+
+    // Calculate average confidence
+    let averageConfidence = 0;
+    if (internalResult.status === 'fulfilled') {
+      averageConfidence += internalResult.value.confidence;
+    }
+    if (externalResult.status === 'fulfilled') {
+      averageConfidence += externalResult.value.confidence;
+    }
+    averageConfidence /= 2;
+
+    // Generate result
+    const result: AggregatedResult = {
+      products: combinedProducts,
+      totalCount: combinedProducts.length,
+      sources: activeSources,
+      confidence: averageConfidence,
+      searchMetadata: {
+        query,
+        filters,
+        timestamp: new Date().toISOString(),
+        internalCount: internalProducts.length,
+        externalCount: externalData?.product ? 1 : 0
+      }
+    };
+
+    return result;
+  } catch (error) {
+    console.error('Aggregation error:', error);
+    return {
+      products: [],
+      totalCount: 0,
+      sources: [],
+      confidence: 0,
+      searchMetadata: {
+        query,
+        filters,
+        timestamp: new Date().toISOString(),
+        internalCount: 0,
+        externalCount: 0
+      }
     };
   }
 };

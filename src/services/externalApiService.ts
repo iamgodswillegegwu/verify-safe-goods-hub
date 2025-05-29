@@ -1,22 +1,4 @@
-import { z } from 'zod';
-
-const productSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  brands: z.string().optional(),
-  categories: z.string().optional(),
-  image_front_url: z.string().optional(),
-  nutriscore_grade: z.string().optional(),
-});
-
-const openFoodFactsResponseSchema = z.object({
-  product: productSchema.optional(),
-  code: z.string().optional(),
-  status: z.number(),
-  status_verbose: z.string(),
-});
-
-export type APISource = 'openfoodfacts' | 'fda' | 'cosing' | 'gs1' | 'internal' | 'nafdac' | 'external';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface ValidationResult {
   found: boolean;
@@ -25,101 +7,129 @@ export interface ValidationResult {
   source: APISource;
   product?: ExternalProduct;
   alternatives: ExternalProduct[];
+  sources?: string[];
+  metadata?: {
+    searchQuery: string;
+    timestamp: string;
+    region?: string;
+  };
 }
 
 export interface ExternalProduct {
   id: string;
   name: string;
-  brand: string;
-  category: string;
+  barcode?: string;
+  category?: string;
+  brand?: string;
+  manufacturer?: string;
+  description?: string;
+  ingredients?: string[];
+  nutritionalInfo?: {
+    energy?: string;
+    fat?: string;
+    carbohydrates?: string;
+    protein?: string;
+    salt?: string;
+  };
+  images?: string[];
   verified: boolean;
+  confidence: number;
   source: APISource;
-  data: any;
-  imageUrl?: string;
-  nutriScore?: string;
+  country?: string;
+  registrationNumber?: string;
+  expiryDate?: string;
+  batchNumber?: string;
+  nafdacNumber?: string;
 }
 
-// Quick search function for Open Food Facts API
-export const searchProductsQuick = async (
-  query: string,
-  limit: number = 5
-): Promise<ExternalProduct[]> => {
-  try {
-    const response = await fetch(
-      `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${query}&search_simple=1&action=process&json=1&page_size=${limit}`
-    );
-    const data = await response.json();
+export type APISource = 'openfoodfacts' | 'fdc' | 'edamam' | 'nafdac' | 'internal';
 
-    if (data && data.products) {
-      return data.products.map((product: any) => ({
-        id: product.id,
-        name: product.product_name || 'Unknown Product',
-        brand: product.brands || 'Unknown Brand',
-        category: product.categories || 'Unknown Category',
-        verified: false,
-        source: 'openfoodfacts',
-        data: product,
-        imageUrl: product.image_front_url || '/placeholder.svg',
-        nutriScore: product.nutriscore_grade || 'unknown'
-      }));
-    }
+// Cache management
+const resultCache = new Map<string, { result: ValidationResult; timestamp: number }>();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-    return [];
-  } catch (error) {
-    console.error('Error during quick product search:', error);
-    return [];
+export const getCachedResult = (key: string): ValidationResult | null => {
+  const cached = resultCache.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    return cached.result;
   }
+  resultCache.delete(key);
+  return null;
 };
 
-// Validation function for Open Food Facts API
-export const validateProductOpenFoodFacts = async (
-  productName: string,
-  barcode?: string
-): Promise<ValidationResult> => {
-  try {
-    let apiUrl = `https://world.openfoodfacts.org/api/v0/product?json=1`;
-    if (barcode) {
-      apiUrl = `https://world.openfoodfacts.org/api/v0/product/${barcode}.json?fields=code,product_name,brands,categories,image_front_url,nutriscore_grade`;
-    } else {
-      apiUrl = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${productName}&search_simple=1&action=process&json=1&page_size=1`;
-    }
+export const cacheResult = (key: string, result: ValidationResult): void => {
+  resultCache.set(key, { result, timestamp: Date.now() });
+};
 
-    const response = await fetch(apiUrl);
+const searchOpenFoodFacts = async (productName: string, barcode?: string): Promise<ValidationResult> => {
+  const baseUrl = 'https://world.openfoodfacts.org/api/v0/product';
+  const searchTerm = barcode ? `/${barcode}.json` : `?search_terms=${encodeURIComponent(productName)}&json=true`;
+  const url = `${baseUrl}${searchTerm}`;
+
+  try {
+    const response = await fetch(url);
     const data = await response.json();
 
-    const parsedResponse = openFoodFactsResponseSchema.safeParse(data);
-
-    if (!parsedResponse.success) {
-      console.error("Validation error:", parsedResponse.error);
-      return {
-        found: false,
-        verified: false,
-        confidence: 0,
-        source: 'openfoodfacts',
-        alternatives: []
-      };
-    }
-
-    const validatedData = parsedResponse.data;
-
-    if (validatedData.status === 1 && validatedData.product) {
+    if (data.status === 1 && data.product) {
+      const product = data.product;
       return {
         found: true,
         verified: true,
-        confidence: 0.7,
+        confidence: 80,
         source: 'openfoodfacts',
         product: {
-          id: validatedData.product.id || validatedData.code || 'unknown',
-          name: validatedData.product.name || validatedData.product.brands || 'Unknown Product',
-          brand: validatedData.product.brands || 'Unknown Brand',
-          category: validatedData.product.categories || 'Unknown Category',
+          id: product._id,
+          name: product.product_name,
+          barcode: product.code,
+          category: product.categories,
+          brand: product.brands,
+          manufacturer: product.manufacturers,
+          description: product.generic_name,
+          ingredients: product.ingredients?.map((i: any) => i.text),
+          nutritionalInfo: {
+            energy: product.nutriments?.energy_value,
+            fat: product.nutriments?.fat,
+            carbohydrates: product.nutriments?.carbohydrates,
+            protein: product.nutriments?.protein,
+            salt: product.nutriments?.salt,
+          },
+          images: product.image_url ? [product.image_url] : [],
           verified: true,
-          source: 'openfoodfacts',
-          data: validatedData.product,
-          imageUrl: validatedData.product.image_front_url || '/placeholder.svg',
-          nutriScore: validatedData.product.nutriscore_grade || 'unknown'
+          confidence: 80,
+          source: 'openfoodfacts'
         },
-        alternatives: []
+        alternatives: [],
+        sources: ['Open Food Facts']
+      };
+    } else if (data.products && data.products.length > 0) {
+      return {
+        found: true,
+        verified: false,
+        confidence: 60,
+        source: 'openfoodfacts',
+        product: {
+          id: data.products[0]._id,
+          name: data.products[0].product_name,
+          barcode: data.products[0].code,
+          category: data.products[0].categories,
+          brand: data.products[0].brands,
+          manufacturer: data.products[0].manufacturers,
+          description: data.products[0].generic_name,
+          ingredients: data.products[0].ingredients?.map((i: any) => i.text),
+          nutritionalInfo: {
+            energy: data.products[0].nutriments?.energy_value,
+            fat: data.products[0].nutriments?.fat,
+            carbohydrates: data.products[0].nutriments?.carbohydrates,
+            protein: data.products[0].nutriments?.protein,
+            salt: data.products[0].nutriments?.salt,
+          },
+          images: data.products[0].image_url ? [data.products[0].image_url] : [],
+          verified: false,
+          confidence: 60,
+          source: 'openfoodfacts'
+        },
+        alternatives: [],
+        sources: ['Open Food Facts']
       };
     } else {
       return {
@@ -127,239 +137,156 @@ export const validateProductOpenFoodFacts = async (
         verified: false,
         confidence: 0,
         source: 'openfoodfacts',
-        alternatives: []
+        alternatives: [],
+        sources: ['Open Food Facts']
       };
     }
   } catch (error) {
-    console.error('Open Food Facts validation error:', error);
+    console.error('Open Food Facts API error:', error);
     return {
       found: false,
       verified: false,
       confidence: 0,
       source: 'openfoodfacts',
-      alternatives: []
+      alternatives: [],
+      sources: ['Open Food Facts']
     };
   }
 };
 
-// Validation function for FDA API (Drugs@FDA)
-export const validateProductFDA = async (
-  productName: string,
-  barcode?: string
-): Promise<ValidationResult> => {
-  try {
-    // Simulate FDA validation (replace with actual API call if available)
-    console.log('Simulating FDA validation for:', productName);
+const searchFDC = async (productName: string, category?: string): Promise<ValidationResult> => {
+  const apiKey = process.env.NEXT_PUBLIC_FDC_API_KEY;
+  if (!apiKey) {
+    console.warn('FDC API key is missing.');
+    return {
+      found: false,
+      verified: false,
+      confidence: 0,
+      source: 'fdc',
+      alternatives: [],
+      sources: ['Food Data Central']
+    };
+  }
 
-    // Simulate a positive match with some confidence
-    if (productName.toLowerCase().includes('aspirin') || productName.toLowerCase().includes('ibuprofen')) {
+  let url = `https://api.nal.usda.gov/fdc/v1/food/search?api_key=${apiKey}&dataType=Foundation,Survey,SR Legacy&pageSize=2`;
+  if (productName) {
+    url += `&query=${encodeURIComponent(productName)}`;
+  }
+  if (category) {
+    url += `&brandOwner=${encodeURIComponent(category)}`;
+  }
+
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.foods && data.foods.length > 0) {
+      const food = data.foods[0];
       return {
         found: true,
         verified: true,
-        confidence: 0.6,
-        source: 'fda',
+        confidence: 75,
+        source: 'fdc',
         product: {
-          id: `fda-${Date.now()}`,
-          name: `Simulated ${productName}`,
-          brand: 'Simulated FDA Brand',
-          category: 'medication',
-          verified: true,
-          source: 'fda',
-          data: {
-            active_ingredients: ['Simulated Active Ingredient'],
-            application_number: 'Simulated Application Number'
+          id: String(food.fdcId),
+          name: food.description,
+          brand: food.brandOwner,
+          category: food.foodCategory,
+          description: food.ingredients,
+          nutritionalInfo: {
+            energy: food.foodNutrients?.find((n: any) => n.nutrientName === 'Energy')?.value,
+            fat: food.foodNutrients?.find((n: any) => n.nutrientName === 'Total lipid (fat)')?.value,
+            carbohydrates: food.foodNutrients?.find((n: any) => n.nutrientName === 'Carbohydrate, by difference')?.value,
+            protein: food.foodNutrients?.find((n: any) => n.nutrientName === 'Protein')?.value,
+            salt: food.foodNutrients?.find((n: any) => n.nutrientName === 'Sodium')?.value,
           },
-          imageUrl: '/placeholder.svg'
+          verified: true,
+          confidence: 75,
+          source: 'fdc'
         },
-        alternatives: []
+        alternatives: data.foods.slice(1).map((f: any) => ({
+          id: String(f.fdcId),
+          name: f.description,
+          brand: f.brandOwner,
+          category: food.foodCategory,
+          verified: false,
+          confidence: 50,
+          source: 'fdc' as APISource
+        })),
+        sources: ['Food Data Central']
       };
-    }
-
-    // If no match, return not found
-    return {
-      found: false,
-      verified: false,
-      confidence: 0,
-      source: 'fda',
-      alternatives: []
-    };
-
-  } catch (error) {
-    console.error('FDA validation error:', error);
-    return {
-      found: false,
-      verified: false,
-      confidence: 0,
-      source: 'fda',
-      alternatives: []
-    };
-  }
-};
-
-// Validation function for CosIng API (EU Cosmetics)
-export const validateProductCosing = async (
-  productName: string,
-  barcode?: string
-): Promise<ValidationResult> => {
-  try {
-    // Simulate CosIng validation (replace with actual API call if available)
-    console.log('Simulating CosIng validation for:', productName);
-
-    // Simulate a positive match with some confidence
-    if (productName.toLowerCase().includes('shampoo') || productName.toLowerCase().includes('cream')) {
+    } else {
       return {
-        found: true,
-        verified: true,
-        confidence: 0.5,
-        source: 'cosing',
-        product: {
-          id: `cosing-${Date.now()}`,
-          name: `Simulated ${productName}`,
-          brand: 'Simulated CosIng Brand',
-          category: 'cosmetics',
-          verified: true,
-          source: 'cosing',
-          data: {
-            inci_name: 'Simulated INCI Name',
-            function: 'Simulated Function'
-          },
-          imageUrl: '/placeholder.svg'
-        },
-        alternatives: []
+        found: false,
+        verified: false,
+        confidence: 0,
+        source: 'fdc',
+        alternatives: [],
+        sources: ['Food Data Central']
       };
     }
-
-    // If no match, return not found
-    return {
-      found: false,
-      verified: false,
-      confidence: 0,
-      source: 'cosing',
-      alternatives: []
-    };
-
   } catch (error) {
-    console.error('CosIng validation error:', error);
+    console.error('FDC API error:', error);
     return {
       found: false,
       verified: false,
       confidence: 0,
-      source: 'cosing',
-      alternatives: []
+      source: 'fdc',
+      alternatives: [],
+      sources: ['Food Data Central']
     };
   }
 };
 
-// Validation function for GS1 Global Registry
-export const validateProductGS1 = async (
-  productName: string,
-  barcode?: string
-): Promise<ValidationResult> => {
+// NAFDAC integration function
+export const searchNAFDAC = async (productName: string): Promise<ValidationResult> => {
   try {
-    // Simulate GS1 validation (replace with actual API call if available)
-    console.log('Simulating GS1 validation for:', productName);
-
-    // Simulate a positive match with some confidence
-    if (productName.toLowerCase().includes('electronics') || productName.toLowerCase().includes('clothing')) {
-      return {
-        found: true,
-        verified: true,
-        confidence: 0.4,
-        source: 'gs1',
-        product: {
-          id: `gs1-${Date.now()}`,
-          name: `Simulated ${productName}`,
-          brand: 'Simulated GS1 Brand',
-          category: 'general',
-          verified: true,
-          source: 'gs1',
-          data: {
-            gtin: 'Simulated GTIN',
-            company_name: 'Simulated Company Name'
-          },
-          imageUrl: '/placeholder.svg'
-        },
-        alternatives: []
-      };
-    }
-
-    // If no match, return not found
-    return {
-      found: false,
-      verified: false,
-      confidence: 0,
-      source: 'gs1',
-      alternatives: []
-    };
-
-  } catch (error) {
-    console.error('GS1 validation error:', error);
-    return {
-      found: false,
-      verified: false,
-      confidence: 0,
-      source: 'gs1',
-      alternatives: []
-    };
-  }
-};
-
-// Add NAFDAC validation function
-export const validateProductNAFDAC = async (
-  productName: string,
-  barcode?: string
-): Promise<ValidationResult> => {
-  try {
-    console.log('Validating product with NAFDAC:', productName);
-
-    const response = await fetch('https://flyvlvtvgvfybtnuntsd.supabase.co/functions/v1/nafdac-scraper', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZseXZsdnR2Z3ZmeWJ0bnVudHNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1NDQ5MTgsImV4cCI6MjA2NDEyMDkxOH0.iGlfXJUM6EZUwE_s0ipn6LR4ZkgK3d2hojRs5m_xo-g`,
-      },
-      body: JSON.stringify({
-        searchQuery: productName,
-        limit: 5
-      })
+    const { data, error } = await supabase.functions.invoke('nafdac-scraper', {
+      body: { productName }
     });
 
-    const result = await response.json();
+    if (error) {
+      console.error('NAFDAC search error:', error);
+      return {
+        found: false,
+        verified: false,
+        confidence: 0,
+        source: 'nafdac',
+        alternatives: []
+      };
+    }
 
-    if (result.found && result.products && result.products.length > 0) {
-      const product = result.products[0];
+    if (data?.success && data?.products?.length > 0) {
+      const product = data.products[0];
       return {
         found: true,
         verified: true,
-        confidence: result.confidence || 0.8,
-        source: 'nafdac' as APISource,
+        confidence: product.confidence || 85,
+        source: 'nafdac',
         product: {
-          id: product.id,
+          id: product.id || `nafdac-${Date.now()}`,
           name: product.name,
-          brand: product.manufacturer,
+          brand: product.brand,
+          manufacturer: product.manufacturer,
           category: product.category,
-          verified: product.verified,
-          source: 'nafdac' as APISource,
-          data: {
-            ...product,
-            certifyingOrganization: 'NAFDAC (Nigeria)',
-            country: 'Nigeria'
-          },
-          imageUrl: '/placeholder.svg'
+          verified: true,
+          confidence: product.confidence || 85,
+          source: 'nafdac',
+          country: 'Nigeria',
+          registrationNumber: product.registrationNumber,
+          nafdacNumber: product.nafdacNumber
         },
-        alternatives: result.products.slice(1).map((p: any) => ({
-          id: p.id,
+        alternatives: data.products.slice(1).map((p: any) => ({
+          id: p.id || `nafdac-alt-${Date.now()}`,
           name: p.name,
-          brand: p.manufacturer,
-          category: p.category,
-          verified: p.verified,
+          brand: p.brand,
+          manufacturer: p.manufacturer,
+          verified: true,
+          confidence: p.confidence || 70,
           source: 'nafdac' as APISource,
-          data: {
-            ...p,
-            certifyingOrganization: 'NAFDAC (Nigeria)',
-            country: 'Nigeria'
-          },
-          imageUrl: '/placeholder.svg'
+          country: 'Nigeria',
+          registrationNumber: p.registrationNumber,
+          nafdacNumber: p.nafdacNumber
         }))
       };
     }
@@ -368,17 +295,16 @@ export const validateProductNAFDAC = async (
       found: false,
       verified: false,
       confidence: 0,
-      source: 'nafdac' as APISource,
+      source: 'nafdac',
       alternatives: []
     };
-
   } catch (error) {
-    console.error('NAFDAC validation error:', error);
+    console.error('NAFDAC integration error:', error);
     return {
       found: false,
       verified: false,
       confidence: 0,
-      source: 'nafdac' as APISource,
+      source: 'nafdac',
       alternatives: []
     };
   }
@@ -389,67 +315,64 @@ export const validateProductExternal = async (
   barcode?: string,
   category?: string
 ): Promise<ValidationResult> => {
-  const results: ValidationResult[] = [];
+  const cacheKey = `${productName}-${barcode || ''}-${category || ''}`;
+  
+  // Check cache first
+  const cached = getCachedResult(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  // Try multiple sources in parallel
+  const promises = [
+    searchOpenFoodFacts(productName, barcode),
+    searchFDC(productName, category),
+    searchNAFDAC(productName)
+  ];
 
   try {
-    // Check Open Food Facts for food products
-    if (!category || category === 'food') {
-      const foodResult = await validateProductOpenFoodFacts(productName, barcode);
-      if (foodResult.found) results.push(foodResult);
-    }
-
-    // Check FDA for drugs and medical products
-    if (!category || category === 'medication') {
-      const fdaResult = await validateProductFDA(productName, barcode);
-      if (fdaResult.found) results.push(fdaResult);
-    }
-
-    // Check CosIng for cosmetics
-    if (!category || category === 'cosmetics') {
-      const cosResult = await validateProductCosing(productName, barcode);
-      if (cosResult.found) results.push(cosResult);
-    }
-
-    // Check GS1 for general products
-    if (!category || category === 'general') {
-      const gs1Result = await validateProductGS1(productName, barcode);
-      if (gs1Result.found) results.push(gs1Result);
-    }
-
-    // Always check NAFDAC for Nigerian products (all categories)
-    const nafdacResult = await validateProductNAFDAC(productName, barcode);
-    if (nafdacResult.found) results.push(nafdacResult);
-
-    // Return the result with highest confidence
-    if (results.length > 0) {
-      const bestResult = results.reduce((best, current) => 
-        current.confidence > best.confidence ? current : best
-      );
-      
-      // Combine alternatives from all sources
-      const allAlternatives = results.flatMap(r => r.alternatives || []);
-      
-      return {
-        ...bestResult,
-        alternatives: allAlternatives
-      };
-    }
-
-    return {
+    const results = await Promise.allSettled(promises);
+    
+    // Find the best result
+    let bestResult: ValidationResult = {
       found: false,
       verified: false,
       confidence: 0,
-      source: 'external' as APISource,
+      source: 'openfoodfacts',
       alternatives: []
     };
 
+    results.forEach((result) => {
+      if (result.status === 'fulfilled' && result.value.found) {
+        if (result.value.confidence > bestResult.confidence) {
+          bestResult = result.value;
+        }
+      }
+    });
+
+    // Combine alternatives from all sources
+    const allAlternatives: ExternalProduct[] = [];
+    results.forEach((result) => {
+      if (result.status === 'fulfilled') {
+        allAlternatives.push(...result.value.alternatives);
+      }
+    });
+
+    bestResult.alternatives = allAlternatives
+      .filter(alt => alt.name !== bestResult.product?.name)
+      .slice(0, 5);
+
+    // Cache the result
+    cacheResult(cacheKey, bestResult);
+    
+    return bestResult;
   } catch (error) {
     console.error('External validation error:', error);
     return {
       found: false,
       verified: false,
       confidence: 0,
-      source: 'external' as APISource,
+      source: 'openfoodfacts',
       alternatives: []
     };
   }
