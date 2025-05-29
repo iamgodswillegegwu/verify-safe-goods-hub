@@ -22,7 +22,7 @@ interface Product {
   batch_number: string;
   certification_number?: string;
   status: 'pending' | 'under_review' | 'approved' | 'rejected';
-  nutri_score?: 'A' | 'B' | 'C' | 'D' | 'E';
+  nutri_score?: string | null;
   country?: string;
   state?: string;
   city?: string;
@@ -67,7 +67,7 @@ const ProductManagement = () => {
     name: '',
     description: '',
     status: 'pending' as Product['status'],
-    nutri_score: '' as Product['nutri_score'] | '',
+    nutri_score: '' as string,
   });
   const { toast } = useToast();
 
@@ -183,8 +183,10 @@ const ProductManagement = () => {
         updated_at: new Date().toISOString()
       };
 
-      if (editFormData.nutri_score) {
+      if (editFormData.nutri_score && editFormData.nutri_score !== '') {
         updateData.nutri_score = editFormData.nutri_score;
+      } else {
+        updateData.nutri_score = null;
       }
 
       const { error } = await supabase
@@ -286,7 +288,7 @@ const ProductManagement = () => {
     }
   };
 
-  const getNutriScoreBadgeColor = (score?: string) => {
+  const getNutriScoreBadgeColor = (score?: string | null) => {
     switch (score) {
       case 'A':
         return 'bg-green-500 text-white';
@@ -584,7 +586,7 @@ const ProductManagement = () => {
             </div>
             <div>
               <Label htmlFor="nutri_score">Nutri-Score (Optional)</Label>
-              <Select value={editFormData.nutri_score} onValueChange={(value: Product['nutri_score'] | '') => setEditFormData(prev => ({ ...prev, nutri_score: value }))}>
+              <Select value={editFormData.nutri_score} onValueChange={(value: string) => setEditFormData(prev => ({ ...prev, nutri_score: value }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select Nutri-Score" />
                 </SelectTrigger>
