@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Eye, EyeOff, Shield, Mail, Lock, User, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -27,10 +26,10 @@ const Signup = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { signUp } = useAuth();
+  const { signUp, signInWithOAuth } = useAuth();
   const { toast } = useToast();
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (formData.password !== formData.confirmPassword) {
@@ -85,7 +84,30 @@ const Signup = () => {
     }
   };
 
-  const handleInputChange = (field, value) => {
+  const handleOAuthSignIn = async (provider: 'google' | 'facebook') => {
+    setIsLoading(true);
+    try {
+      const { error } = await signInWithOAuth(provider);
+      
+      if (error) {
+        toast({
+          title: "OAuth Sign Up Failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -290,7 +312,12 @@ const Signup = () => {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <Button variant="outline" className="border-slate-300 text-slate-600 hover:bg-slate-50">
+              <Button 
+                variant="outline" 
+                className="border-slate-300 text-slate-600 hover:bg-slate-50"
+                onClick={() => handleOAuthSignIn('google')}
+                disabled={isLoading}
+              >
                 <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24">
                   <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                   <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -299,7 +326,12 @@ const Signup = () => {
                 </svg>
                 Google
               </Button>
-              <Button variant="outline" className="border-slate-300 text-slate-600 hover:bg-slate-50">
+              <Button 
+                variant="outline" 
+                className="border-slate-300 text-slate-600 hover:bg-slate-50"
+                onClick={() => handleOAuthSignIn('facebook')}
+                disabled={isLoading}
+              >
                 <svg className="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
                 </svg>

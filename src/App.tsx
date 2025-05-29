@@ -10,6 +10,7 @@ import Signup from "./pages/Signup";
 import Subscription from "./pages/Subscription";
 import Manufacturer from "./pages/Manufacturer";
 import Admin from "./pages/Admin";
+import SuperAdmin from "./pages/SuperAdmin";
 import Dashboard from "./pages/Dashboard";
 import Favorites from "./pages/Favorites";
 import NotFound from "./pages/NotFound";
@@ -29,6 +30,7 @@ const App = () => (
           <Route path="/subscription" element={<Subscription />} />
           <Route path="/manufacturer" element={<Manufacturer />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/super-admin" element={<SuperAdmin />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/favorites" element={<Favorites />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
