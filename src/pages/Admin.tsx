@@ -23,6 +23,8 @@ const Admin = () => {
     dailyScans: 1542
   });
 
+  console.log('Admin page rendering, activeSection:', activeSection);
+
   useEffect(() => {
     if (!loading && !user) {
       navigate('/login');
@@ -42,6 +44,7 @@ const Admin = () => {
   }
 
   const renderContent = () => {
+    console.log('Rendering content for section:', activeSection);
     switch (activeSection) {
       case 'auth-settings':
         return <AuthenticationSettings />;
@@ -60,14 +63,16 @@ const Admin = () => {
     <div className="min-h-screen bg-gray-50">
       <Navigation />
       
-      <div className="flex h-[calc(100vh-64px)]">
+      <div className="flex h-[calc(100vh-64px)] w-full">
         <AdminSidebar 
           activeSection={activeSection} 
           onSectionChange={setActiveSection} 
         />
         
-        <main className="flex-1 overflow-y-auto p-6">
-          {renderContent()}
+        <main className="flex-1 overflow-y-auto p-6 bg-gray-50">
+          <div className="max-w-7xl mx-auto">
+            {renderContent()}
+          </div>
         </main>
       </div>
     </div>
