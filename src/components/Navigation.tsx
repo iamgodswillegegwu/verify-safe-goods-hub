@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Shield, Menu, X, User, Building2, BarChart3, LogOut } from 'lucide-react';
+import { Shield, Menu, X, User, LogOut, Phone, DollarSign, HelpCircle, Briefcase } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -39,9 +39,10 @@ const Navigation = () => {
 
   const navItems = [
     { label: 'Home', path: '/', icon: Shield },
-    { label: 'Manufacturer Portal', path: '/manufacturer', icon: Building2 },
-    { label: 'Admin Dashboard', path: '/admin', icon: BarChart3 },
-    { label: 'Subscription', path: '/subscription', icon: User },
+    { label: 'Our Services', path: '/services', icon: Briefcase },
+    { label: 'Pricing', path: '/subscription', icon: DollarSign },
+    { label: 'How to Use', path: '/how-to-use', icon: HelpCircle },
+    { label: 'Contact Us', path: '/contact', icon: Phone },
   ];
 
   if (loading) {
