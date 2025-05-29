@@ -17,6 +17,7 @@ import PersonalizedRecommendations from '@/components/PersonalizedRecommendation
 import SmartSearchSuggestions from '@/components/SmartSearchSuggestions';
 import AdvancedSearchInterface from '@/components/AdvancedSearchInterface';
 import AutoSuggestSearch from '@/components/AutoSuggestSearch';
+import EnhancedProductDisplay from '@/components/EnhancedProductDisplay';
 
 const Index = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -247,10 +248,10 @@ const Index = () => {
                       </div>
                     )}
 
-                    {/* Verification Result */}
+                    {/* Verification Result - Enhanced Display */}
                     {verificationResult && (
                       <div className="mt-6">
-                        <EnhancedVerificationResult result={verificationResult} />
+                        <EnhancedProductDisplay result={verificationResult} />
                       </div>
                     )}
                   </CardContent>

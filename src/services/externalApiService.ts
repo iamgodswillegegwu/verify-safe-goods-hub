@@ -278,7 +278,8 @@ export const getCachedResult = async (query: string): Promise<ValidationResult |
       return null;
     }
 
-    return data.result_data as ValidationResult;
+    // Fix TypeScript error by properly typing the result
+    return data.result_data as unknown as ValidationResult;
   } catch (error) {
     console.error('Error getting cached result:', error);
     return null;

@@ -22,24 +22,60 @@ const SearchFilters = ({ filters, onFiltersChange }: SearchFiltersProps) => {
   const [countries, setCountries] = useState<string[]>([]);
   const [states, setStates] = useState<string[]>([]);
 
+  // Enhanced categories that map to external APIs
+  const enhancedCategories = [
+    { id: 'food', name: 'Food Products', externalApi: 'openfoodfacts' },
+    { id: 'cosmetics', name: 'Cosmetics', externalApi: 'cosing' },
+    { id: 'skincare', name: 'Skincare', externalApi: 'cosing' },
+    { id: 'personal_care', name: 'Personal Care', externalApi: 'cosing' },
+    { id: 'hair_care', name: 'Hair Care', externalApi: 'cosing' },
+    { id: 'supplements', name: 'Supplements', externalApi: 'fda' },
+    { id: 'vitamins', name: 'Vitamins', externalApi: 'fda' },
+    { id: 'medications', name: 'Medications', externalApi: 'fda' }
+  ];
+
   const nutriScoreOptions = ['A', 'B', 'C', 'D', 'E'];
+
+  // Enhanced location options that include common external API regions
+  const enhancedCountries = [
+    'United States', 'Canada', 'United Kingdom', 'France', 'Germany',
+    'Italy', 'Spain', 'Australia', 'Japan', 'South Korea', 'Brazil'
+  ];
+
+  const enhancedStates = [
+    'California', 'New York', 'Texas', 'Florida', 'Illinois',
+    'Pennsylvania', 'Ohio', 'Georgia', 'North Carolina', 'Michigan'
+  ];
 
   useEffect(() => {
     fetchFilterOptions();
   }, []);
 
   const fetchFilterOptions = async () => {
-    // Fetch categories
+    // Fetch internal categories and combine with enhanced categories
     const { data: categoriesData } = await supabase
       .from('categories')
       .select('*')
       .order('name');
     
     if (categoriesData) {
-      setCategories(categoriesData);
+      // Combine internal categories with enhanced external categories
+      const combinedCategories = [
+        ...categoriesData,
+        ...enhancedCategories.filter(ec => 
+          !categoriesData.some(ic => ic.name.toLowerCase() === ec.name.toLowerCase())
+        )
+      ];
+      setCategories(combinedCategories);
+    } else {
+      setCategories(enhancedCategories);
     }
 
-    // Fetch unique countries and states from products
+    // Use enhanced location data for better external API coverage
+    setCountries(enhancedCountries);
+    setStates(enhancedStates);
+
+    // Also fetch from products for existing data
     const { data: productsData } = await supabase
       .from('products')
       .select('country, state')
@@ -47,8 +83,14 @@ const SearchFilters = ({ filters, onFiltersChange }: SearchFiltersProps) => {
       .not('country', 'is', null);
 
     if (productsData) {
-      const uniqueCountries = [...new Set(productsData.map(p => p.country).filter(Boolean))];
-      const uniqueStates = [...new Set(productsData.map(p => p.state).filter(Boolean))];
+      const uniqueCountries = [...new Set([
+        ...enhancedCountries,
+        ...productsData.map(p => p.country).filter(Boolean)
+      ])];
+      const uniqueStates = [...new Set([
+        ...enhancedStates,
+        ...productsData.map(p => p.state).filter(Boolean)
+      ])];
       setCountries(uniqueCountries);
       setStates(uniqueStates);
     }
@@ -82,7 +124,7 @@ const SearchFilters = ({ filters, onFiltersChange }: SearchFiltersProps) => {
             <CardTitle className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Filter className="h-5 w-5 text-blue-600" />
-                <span>Search Filters</span>
+                <span>Enhanced Search Filters</span>
                 {getActiveFiltersCount() > 0 && (
                   <Badge variant="secondary" className="bg-blue-100 text-blue-700">
                     {getActiveFiltersCount()} active
@@ -98,13 +140,16 @@ const SearchFilters = ({ filters, onFiltersChange }: SearchFiltersProps) => {
 
         <CollapsibleContent>
           <CardContent className="space-y-6">
-            {/* Category Filter */}
+            {/* Enhanced Category Filter with External API Integration */}
             <div>
               <h4 className="flex items-center gap-2 font-semibold text-slate-700 mb-3">
                 <Tag className="h-4 w-4" />
-                Category
+                Product Category
+                <Badge variant="outline" className="text-xs bg-green-50 text-green-700">
+                  Internal + External APIs
+                </Badge>
               </h4>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                 {categories.map((category) => (
                   <div key={category.id} className="flex items-center space-x-2">
                     <Checkbox
@@ -119,17 +164,25 @@ const SearchFilters = ({ filters, onFiltersChange }: SearchFiltersProps) => {
                       className="text-sm text-slate-600 cursor-pointer"
                     >
                       {category.name}
+                      {category.externalApi && (
+                        <Badge variant="outline" className="ml-1 text-xs">
+                          {category.externalApi}
+                        </Badge>
+                      )}
                     </label>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Nutri-Score Filter */}
+            {/* Enhanced Nutri-Score Filter */}
             <div>
               <h4 className="flex items-center gap-2 font-semibold text-slate-700 mb-3">
                 <Award className="h-4 w-4" />
                 Nutri-Score
+                <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700">
+                  Global Standards
+                </Badge>
               </h4>
               <div className="flex gap-2">
                 {nutriScoreOptions.map((score) => {
@@ -166,16 +219,21 @@ const SearchFilters = ({ filters, onFiltersChange }: SearchFiltersProps) => {
               </div>
             </div>
 
-            {/* Geographic Filter */}
+            {/* Enhanced Geographic Filter */}
             <div>
               <h4 className="flex items-center gap-2 font-semibold text-slate-700 mb-3">
                 <MapPin className="h-4 w-4" />
-                Location
+                Geographic Location
+                <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700">
+                  Enhanced Coverage
+                </Badge>
               </h4>
               <div className="grid md:grid-cols-2 gap-4">
                 {/* Country */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-2">Country</label>
+                  <label className="block text-sm font-medium text-slate-600 mb-2">
+                    Country/Region
+                  </label>
                   <select
                     value={currentFilters.country || ''}
                     onChange={(e) => updateFilters('country', e.target.value || undefined)}
@@ -190,7 +248,9 @@ const SearchFilters = ({ filters, onFiltersChange }: SearchFiltersProps) => {
 
                 {/* State */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-2">State</label>
+                  <label className="block text-sm font-medium text-slate-600 mb-2">
+                    State/Province
+                  </label>
                   <select
                     value={currentFilters.state || ''}
                     onChange={(e) => updateFilters('state', e.target.value || undefined)}
@@ -213,7 +273,7 @@ const SearchFilters = ({ filters, onFiltersChange }: SearchFiltersProps) => {
                   onClick={clearFilters}
                   className="text-slate-600 border-slate-300"
                 >
-                  Clear All Filters
+                  Clear All Filters ({getActiveFiltersCount()})
                 </Button>
               </div>
             )}
