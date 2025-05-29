@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Camera, Search, Shield, Users, BarChart3, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -20,7 +19,7 @@ import { SearchFilters as SearchFiltersType } from '@/services/productService';
 
 const Index = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchFilters, setSearchFilters] = useState<SearchFiltersType>({});
+  const [searchFilters, setSearchFilters] = useState({});
   const [verificationResult, setVerificationResult] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
   const [isLoading, setIsLoading] = useState(false);

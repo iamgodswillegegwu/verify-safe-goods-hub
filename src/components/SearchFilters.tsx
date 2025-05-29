@@ -9,11 +9,14 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 
 interface SearchFiltersProps {
+  filters: any;
   onFiltersChange: (filters: any) => void;
-  currentFilters: any;
 }
 
-const SearchFilters = ({ onFiltersChange, currentFilters }: SearchFiltersProps) => {
+const SearchFilters = ({ filters, onFiltersChange }: SearchFiltersProps) => {
+  // Ensure filters is always an object
+  const currentFilters = filters || {};
+  
   const [isOpen, setIsOpen] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
   const [countries, setCountries] = useState<string[]>([]);
@@ -61,6 +64,11 @@ const SearchFilters = ({ onFiltersChange, currentFilters }: SearchFiltersProps) 
   };
 
   const getActiveFiltersCount = () => {
+    // Safely handle undefined/null currentFilters
+    if (!currentFilters || typeof currentFilters !== 'object') {
+      return 0;
+    }
+    
     return Object.values(currentFilters).filter(value => 
       Array.isArray(value) ? value.length > 0 : value
     ).length;

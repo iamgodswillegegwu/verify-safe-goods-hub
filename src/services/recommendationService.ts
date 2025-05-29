@@ -41,10 +41,12 @@ export const getUserPreferences = async (userId: string): Promise<UserPreference
     .order('created_at', { ascending: false })
     .limit(20);
 
+  // Safely extract categories, handling the nested structure
   const favoriteCategories = Array.from(new Set(
     favorites?.map(f => f.product?.category?.name).filter(Boolean) || []
   ));
 
+  // Safely extract nutri scores
   const preferredNutriScores = Array.from(new Set(
     favorites?.map(f => f.product?.nutri_score).filter(Boolean) || []
   ));
@@ -53,7 +55,7 @@ export const getUserPreferences = async (userId: string): Promise<UserPreference
     searches?.map(s => s.search_query).filter(Boolean) || []
   )).slice(0, 10);
 
-  // Get most common location from favorites
+  // Get most common location from favorites, handling the nested structure
   const locations = favorites?.map(f => ({
     country: f.product?.country,
     state: f.product?.state,
