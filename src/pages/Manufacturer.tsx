@@ -427,7 +427,7 @@ const Manufacturer = () => {
 
                     <Button 
                       type="submit" 
-                      className="w-full bg-green-600 hover:bg-green-700 text-white font-medium" 
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium" 
                       size="lg"
                     >
                       <Plus className="h-4 w-4 mr-2" />
