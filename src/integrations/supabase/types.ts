@@ -415,11 +415,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_role: {
+        Args: { user_id: string }
+        Returns: Database["public"]["Enums"]["user_role"]
+      }
     }
     Enums: {
       product_status: "pending" | "under_review" | "approved" | "rejected"
-      user_role: "consumer" | "manufacturer" | "admin"
+      user_role:
+        | "consumer"
+        | "manufacturer"
+        | "admin"
+        | "super_admin"
+        | "test_user"
       verification_result: "verified" | "not_found" | "counterfeit"
     }
     CompositeTypes: {
@@ -537,7 +545,13 @@ export const Constants = {
   public: {
     Enums: {
       product_status: ["pending", "under_review", "approved", "rejected"],
-      user_role: ["consumer", "manufacturer", "admin"],
+      user_role: [
+        "consumer",
+        "manufacturer",
+        "admin",
+        "super_admin",
+        "test_user",
+      ],
       verification_result: ["verified", "not_found", "counterfeit"],
     },
   },
