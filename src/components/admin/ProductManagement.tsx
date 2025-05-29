@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Package, Search, Filter, Plus, Edit, Trash2, Eye, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Package, Search, Filter, Plus, Edit, Trash2, Eye, CheckCircle, XCircle, Clock, PackagePlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -38,6 +38,8 @@ interface Product {
     id: string;
     name: string;
   };
+  manufacturer_id?: string;
+  category_id?: string;
 }
 
 interface Category {
@@ -63,11 +65,28 @@ const ProductManagement = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editFormData, setEditFormData] = useState({
     name: '',
     description: '',
     status: 'pending' as Product['status'],
     nutri_score: '' as string,
+  });
+  const [createFormData, setCreateFormData] = useState({
+    name: '',
+    description: '',
+    ingredients: '',
+    manufacturing_date: '',
+    expiry_date: '',
+    batch_number: '',
+    certification_number: '',
+    manufacturer_id: '',
+    category_id: '',
+    country: '',
+    state: '',
+    city: '',
+    allergens: '',
+    nutri_score: '',
   });
   const { toast } = useToast();
 
@@ -149,6 +168,82 @@ const ProductManagement = () => {
       setManufacturers(data || []);
     } catch (error) {
       console.error('Error fetching manufacturers:', error);
+    }
+  };
+
+  const handleCreateProduct = async () => {
+    try {
+      console.log('Creating new product:', createFormData.name);
+      
+      const allergensList = createFormData.allergens 
+        ? createFormData.allergens.split(',').map(item => item.trim()).filter(item => item)
+        : [];
+
+      const productData = {
+        name: createFormData.name,
+        description: createFormData.description,
+        ingredients: createFormData.ingredients,
+        manufacturing_date: createFormData.manufacturing_date,
+        expiry_date: createFormData.expiry_date,
+        batch_number: createFormData.batch_number,
+        certification_number: createFormData.certification_number || null,
+        manufacturer_id: createFormData.manufacturer_id || null,
+        category_id: createFormData.category_id || null,
+        country: createFormData.country || null,
+        state: createFormData.state || null,
+        city: createFormData.city || null,
+        allergens: allergensList.length > 0 ? allergensList : null,
+        nutri_score: createFormData.nutri_score || null,
+        status: 'pending' as Product['status'],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase
+        .from('products')
+        .insert([productData]);
+
+      if (error) {
+        console.error('Error creating product:', error);
+        toast({
+          title: "Error",
+          description: `Failed to create product: ${error.message}`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log('Product created successfully');
+      toast({
+        title: "Success",
+        description: "Product created successfully",
+      });
+
+      setIsCreateDialogOpen(false);
+      setCreateFormData({
+        name: '',
+        description: '',
+        ingredients: '',
+        manufacturing_date: '',
+        expiry_date: '',
+        batch_number: '',
+        certification_number: '',
+        manufacturer_id: '',
+        category_id: '',
+        country: '',
+        state: '',
+        city: '',
+        allergens: '',
+        nutri_score: '',
+      });
+      fetchProducts();
+    } catch (error) {
+      console.error('Error creating product:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create product",
+        variant: "destructive",
+      });
     }
   };
 
@@ -257,6 +352,45 @@ const ProductManagement = () => {
       toast({
         title: "Error",
         description: "Failed to delete product",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleQuickStatusUpdate = async (productId: string, newStatus: Product['status']) => {
+    try {
+      console.log('Updating product status:', productId, 'to:', newStatus);
+      
+      const { error } = await supabase
+        .from('products')
+        .update({
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', productId);
+
+      if (error) {
+        console.error('Error updating product status:', error);
+        toast({
+          title: "Error",
+          description: `Failed to update status: ${error.message}`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log('Product status updated successfully');
+      toast({
+        title: "Success",
+        description: `Product status updated to ${newStatus}`,
+      });
+
+      fetchProducts();
+    } catch (error) {
+      console.error('Error updating product status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update status",
         variant: "destructive",
       });
     }
@@ -386,6 +520,14 @@ const ProductManagement = () => {
                   ))}
                 </SelectContent>
               </Select>
+              <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <PackagePlus className="h-4 w-4 mr-2" />
+                    Add Product
+                  </Button>
+                </DialogTrigger>
+              </Dialog>
               <Button onClick={fetchProducts}>
                 Refresh
               </Button>
@@ -444,6 +586,17 @@ const ProductManagement = () => {
                     </div>
                     
                     <div className="flex items-center gap-2">
+                      <Select value={product.status} onValueChange={(value: Product['status']) => handleQuickStatusUpdate(product.id, value)}>
+                        <SelectTrigger className="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="under_review">Under Review</SelectItem>
+                          <SelectItem value="approved">Approved</SelectItem>
+                          <SelectItem value="rejected">Rejected</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <Button
                         variant="outline"
                         size="sm"
@@ -477,6 +630,178 @@ const ProductManagement = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Create Product Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add New Product</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="create_name">Product Name *</Label>
+                <Input
+                  id="create_name"
+                  value={createFormData.name}
+                  onChange={(e) => setCreateFormData(prev => ({ ...prev, name: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="create_batch">Batch Number *</Label>
+                <Input
+                  id="create_batch"
+                  value={createFormData.batch_number}
+                  onChange={(e) => setCreateFormData(prev => ({ ...prev, batch_number: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="create_description">Description *</Label>
+              <Textarea
+                id="create_description"
+                value={createFormData.description}
+                onChange={(e) => setCreateFormData(prev => ({ ...prev, description: e.target.value }))}
+                rows={3}
+              />
+            </div>
+            <div>
+              <Label htmlFor="create_ingredients">Ingredients *</Label>
+              <Textarea
+                id="create_ingredients"
+                value={createFormData.ingredients}
+                onChange={(e) => setCreateFormData(prev => ({ ...prev, ingredients: e.target.value }))}
+                rows={2}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="create_manufacturing_date">Manufacturing Date *</Label>
+                <Input
+                  id="create_manufacturing_date"
+                  type="date"
+                  value={createFormData.manufacturing_date}
+                  onChange={(e) => setCreateFormData(prev => ({ ...prev, manufacturing_date: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="create_expiry_date">Expiry Date *</Label>
+                <Input
+                  id="create_expiry_date"
+                  type="date"
+                  value={createFormData.expiry_date}
+                  onChange={(e) => setCreateFormData(prev => ({ ...prev, expiry_date: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="create_manufacturer">Manufacturer</Label>
+                <Select value={createFormData.manufacturer_id} onValueChange={(value) => setCreateFormData(prev => ({ ...prev, manufacturer_id: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select manufacturer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {manufacturers.map((manufacturer) => (
+                      <SelectItem key={manufacturer.id} value={manufacturer.id}>
+                        {manufacturer.company_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="create_category">Category</Label>
+                <Select value={createFormData.category_id} onValueChange={(value) => setCreateFormData(prev => ({ ...prev, category_id: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="create_country">Country</Label>
+                <Input
+                  id="create_country"
+                  value={createFormData.country}
+                  onChange={(e) => setCreateFormData(prev => ({ ...prev, country: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="create_state">State</Label>
+                <Input
+                  id="create_state"
+                  value={createFormData.state}
+                  onChange={(e) => setCreateFormData(prev => ({ ...prev, state: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="create_city">City</Label>
+                <Input
+                  id="create_city"
+                  value={createFormData.city}
+                  onChange={(e) => setCreateFormData(prev => ({ ...prev, city: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="create_certification">Certification Number</Label>
+                <Input
+                  id="create_certification"
+                  value={createFormData.certification_number}
+                  onChange={(e) => setCreateFormData(prev => ({ ...prev, certification_number: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="create_nutri_score">Nutri-Score</Label>
+                <Select value={createFormData.nutri_score} onValueChange={(value) => setCreateFormData(prev => ({ ...prev, nutri_score: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Nutri-Score" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">No Score</SelectItem>
+                    <SelectItem value="A">A (Best)</SelectItem>
+                    <SelectItem value="B">B</SelectItem>
+                    <SelectItem value="C">C</SelectItem>
+                    <SelectItem value="D">D</SelectItem>
+                    <SelectItem value="E">E (Worst)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="create_allergens">Allergens (comma-separated)</Label>
+              <Input
+                id="create_allergens"
+                value={createFormData.allergens}
+                onChange={(e) => setCreateFormData(prev => ({ ...prev, allergens: e.target.value }))}
+                placeholder="e.g., Nuts, Dairy, Gluten"
+              />
+            </div>
+            <div className="flex gap-2 pt-4">
+              <Button 
+                onClick={handleCreateProduct} 
+                className="flex-1"
+                disabled={!createFormData.name || !createFormData.description || !createFormData.ingredients || !createFormData.manufacturing_date || !createFormData.expiry_date || !createFormData.batch_number}
+              >
+                Create Product
+              </Button>
+              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* View Product Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>

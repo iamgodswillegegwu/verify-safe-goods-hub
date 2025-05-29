@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Users, Search, Filter, Plus, Edit, Trash2, Shield, Mail, Phone, Calendar } from 'lucide-react';
+import { Users, Search, Filter, Plus, Edit, Trash2, Shield, Mail, Phone, Calendar, UserPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -29,7 +29,16 @@ const UserManagement = () => {
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editFormData, setEditFormData] = useState({
+    first_name: '',
+    last_name: '',
+    phone: '',
+    role: 'consumer' as User['role']
+  });
+  const [createFormData, setCreateFormData] = useState({
+    email: '',
+    password: '',
     first_name: '',
     last_name: '',
     phone: '',
@@ -72,6 +81,82 @@ const UserManagement = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateUser = async () => {
+    try {
+      console.log('Creating new user:', createFormData.email);
+      
+      // Create user in auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: createFormData.email,
+        password: createFormData.password,
+        options: {
+          data: {
+            first_name: createFormData.first_name,
+            last_name: createFormData.last_name,
+            phone: createFormData.phone,
+          }
+        }
+      });
+
+      if (authError) {
+        console.error('Error creating user in auth:', authError);
+        toast({
+          title: "Error",
+          description: `Failed to create user: ${authError.message}`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (authData.user) {
+        // Update the profile with the role
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            role: createFormData.role,
+            first_name: createFormData.first_name,
+            last_name: createFormData.last_name,
+            phone: createFormData.phone,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', authData.user.id);
+
+        if (profileError) {
+          console.error('Error updating profile:', profileError);
+          toast({
+            title: "Warning",
+            description: "User created but profile update failed. Please edit the user to set proper details.",
+            variant: "destructive",
+          });
+        }
+      }
+
+      console.log('User created successfully');
+      toast({
+        title: "Success",
+        description: "User created successfully",
+      });
+
+      setIsCreateDialogOpen(false);
+      setCreateFormData({
+        email: '',
+        password: '',
+        first_name: '',
+        last_name: '',
+        phone: '',
+        role: 'consumer'
+      });
+      fetchUsers();
+    } catch (error) {
+      console.error('Error creating user:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create user",
+        variant: "destructive",
+      });
     }
   };
 
@@ -254,6 +339,14 @@ const UserManagement = () => {
                   <SelectItem value="test_user">Test User</SelectItem>
                 </SelectContent>
               </Select>
+              <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Add User
+                  </Button>
+                </DialogTrigger>
+              </Dialog>
               <Button onClick={fetchUsers}>
                 Refresh
               </Button>
@@ -341,6 +434,90 @@ const UserManagement = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Create User Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create New User</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="create_email">Email *</Label>
+              <Input
+                id="create_email"
+                type="email"
+                value={createFormData.email}
+                onChange={(e) => setCreateFormData(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="user@example.com"
+              />
+            </div>
+            <div>
+              <Label htmlFor="create_password">Password *</Label>
+              <Input
+                id="create_password"
+                type="password"
+                value={createFormData.password}
+                onChange={(e) => setCreateFormData(prev => ({ ...prev, password: e.target.value }))}
+                placeholder="Enter secure password"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="create_first_name">First Name</Label>
+                <Input
+                  id="create_first_name"
+                  value={createFormData.first_name}
+                  onChange={(e) => setCreateFormData(prev => ({ ...prev, first_name: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="create_last_name">Last Name</Label>
+                <Input
+                  id="create_last_name"
+                  value={createFormData.last_name}
+                  onChange={(e) => setCreateFormData(prev => ({ ...prev, last_name: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="create_phone">Phone</Label>
+              <Input
+                id="create_phone"
+                value={createFormData.phone}
+                onChange={(e) => setCreateFormData(prev => ({ ...prev, phone: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="create_role">Role</Label>
+              <Select value={createFormData.role} onValueChange={(value: User['role']) => setCreateFormData(prev => ({ ...prev, role: value }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="consumer">Consumer</SelectItem>
+                  <SelectItem value="manufacturer">Manufacturer</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="super_admin">Super Admin</SelectItem>
+                  <SelectItem value="test_user">Test User</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2 pt-4">
+              <Button 
+                onClick={handleCreateUser} 
+                className="flex-1"
+                disabled={!createFormData.email || !createFormData.password}
+              >
+                Create User
+              </Button>
+              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit User Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
