@@ -37,6 +37,15 @@ export const searchExternalProducts = async (
   }
 };
 
+export const performExternalSearch = async (
+  query: string,
+  filters: ExternalSearchFilters = {},
+  limit: number = 10
+): Promise<ExternalProduct[]> => {
+  const results = await searchExternalProducts(query, filters);
+  return results.slice(0, limit);
+};
+
 const searchOpenFoodFacts = async (
   query: string,
   filters: ExternalSearchFilters

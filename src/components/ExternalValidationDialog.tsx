@@ -1,18 +1,17 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
-import { CheckCircle, XCircle, Loader2, ExternalLink } from 'lucide-react';
-import { validateProductAcrossSources } from '@/services/apiAggregationService';
-import type { ValidationSource } from '@/services/externalApiService';
+import { Progress } from '@/components/ui/progress';
+import { CheckCircle, XCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import { getEnhancedValidation } from '@/services/search/enhancedValidationService';
 
 interface ExternalValidationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   productName: string;
-  barcode?: string;
+  barcode: string;
 }
 
 const ExternalValidationDialog = ({ 
@@ -21,121 +20,119 @@ const ExternalValidationDialog = ({
   productName, 
   barcode 
 }: ExternalValidationDialogProps) => {
-  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [sources, setSources] = useState<ValidationSource[]>([]);
+  const [validationResult, setValidationResult] = useState<any>(null);
 
-  const handleValidate = async () => {
+  useEffect(() => {
+    if (open && barcode) {
+      performValidation();
+    }
+  }, [open, barcode]);
+
+  const performValidation = async () => {
     setLoading(true);
     try {
-      const results = await validateProductAcrossSources(productName, barcode);
-      setSources(results);
-      
-      const verifiedCount = results.filter(r => r.verified).length;
-      toast({
-        title: "Validation Complete",
-        description: `Product verified across ${verifiedCount} of ${results.length} sources.`
+      const result = await getEnhancedValidation({
+        barcode,
+        productName
       });
+      setValidationResult(result);
     } catch (error) {
-      toast({
-        title: "Validation Failed",
-        description: "Failed to validate product across external sources.",
-        variant: "destructive"
-      });
+      console.error('Validation failed:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'success':
-        return <CheckCircle className="h-4 w-4 text-green-600" />;
-      case 'error':
-        return <XCircle className="h-4 w-4 text-red-600" />;
-      default:
-        return <Loader2 className="h-4 w-4 animate-spin" />;
-    }
-  };
-
-  const getStatusBadge = (verified: boolean, confidence: number) => {
+  const getStatusIcon = (verified: boolean, confidence: number) => {
     if (verified && confidence > 0.8) {
-      return <Badge className="bg-green-100 text-green-800">Verified</Badge>;
+      return <CheckCircle className="h-5 w-5 text-green-600" />;
     } else if (verified && confidence > 0.6) {
-      return <Badge className="bg-blue-100 text-blue-800">Likely Genuine</Badge>;
-    } else if (confidence > 0.4) {
-      return <Badge variant="secondary">Uncertain</Badge>;
-    } else {
-      return <Badge variant="destructive">Not Found</Badge>;
+      return <AlertTriangle className="h-5 w-5 text-yellow-600" />;
     }
+    return <XCircle className="h-5 w-5 text-red-600" />;
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ExternalLink className="h-5 w-5" />
-            External Validation
-          </DialogTitle>
+          <DialogTitle>External Validation</DialogTitle>
           <DialogDescription>
-            Validate "{productName}" across multiple external databases and regulatory sources.
+            Validating "{productName}" against external databases
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          {sources.length === 0 ? (
+          {loading ? (
             <div className="text-center py-8">
-              <p className="text-gray-500 mb-4">
-                Click "Start Validation" to check this product across external sources.
-              </p>
-              <Button onClick={handleValidate} disabled={loading}>
-                {loading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Validating...
-                  </>
-                ) : (
-                  'Start Validation'
-                )}
-              </Button>
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+              <p className="text-sm text-gray-600">Validating product...</p>
             </div>
-          ) : (
-            <>
-              <div className="grid gap-3">
-                {sources.map((source, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      {getStatusIcon(source.status)}
-                      <div>
-                        <div className="font-medium">{source.name}</div>
-                        <div className="text-sm text-gray-500">
-                          Confidence: {Math.round(source.confidence * 100)}%
-                        </div>
-                      </div>
+          ) : validationResult ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="font-medium">Overall Status</span>
+                <Badge variant={validationResult.isValid ? "default" : "destructive"}>
+                  {validationResult.isValid ? "Valid" : "Invalid"}
+                </Badge>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm">Confidence Score</span>
+                  <span className="text-sm font-medium">
+                    {Math.round(validationResult.confidence * 100)}%
+                  </span>
+                </div>
+                <Progress value={validationResult.confidence * 100} className="h-2" />
+              </div>
+
+              <div className="space-y-3">
+                <h4 className="font-medium">Validation Sources</h4>
+                {validationResult.sources.map((source: any, index: number) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {getStatusIcon(source.verified, source.confidence)}
+                      <span className="text-sm">{source.name}</span>
                     </div>
-                    {getStatusBadge(source.verified, source.confidence)}
+                    <Badge variant="outline">
+                      {Math.round(source.confidence * 100)}%
+                    </Badge>
                   </div>
                 ))}
               </div>
-              
-              <div className="flex gap-2 pt-4">
-                <Button onClick={handleValidate} disabled={loading} variant="outline">
-                  {loading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Re-validating...
-                    </>
-                  ) : (
-                    'Re-validate'
-                  )}
-                </Button>
-                <Button onClick={() => onOpenChange(false)}>
-                  Close
-                </Button>
-              </div>
-            </>
-          )}
+
+              {validationResult.recommendations && (
+                <div className="space-y-2">
+                  <h4 className="font-medium">Recommendations</h4>
+                  <ul className="text-sm text-gray-600 space-y-1">
+                    {validationResult.recommendations.map((rec: string, index: number) => (
+                      <li key={index} className="flex items-start gap-2">
+                        <span className="text-blue-600">•</span>
+                        {rec}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="flex-1"
+            >
+              Close
+            </Button>
+            {!loading && (
+              <Button onClick={performValidation} className="flex-1">
+                Revalidate
+              </Button>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

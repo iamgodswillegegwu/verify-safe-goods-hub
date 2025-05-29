@@ -1,6 +1,6 @@
 
-import SendGridIntegration from './SendGridIntegration';
-import TwilioIntegration from './TwilioIntegration';
+import SendGridIntegrationComponent from './SendGridIntegration';
+import TwilioIntegrationComponent from './TwilioIntegration';
 
 interface SendGridIntegration {
   enabled: boolean;
@@ -37,7 +37,7 @@ const CommunicationIntegrations = ({
 }: CommunicationIntegrationsProps) => {
   return (
     <div className="space-y-6">
-      <SendGridIntegration
+      <SendGridIntegrationComponent
         integration={integrations.sendgrid}
         setIntegrations={setIntegrations}
         loading={loading}
@@ -45,7 +45,7 @@ const CommunicationIntegrations = ({
         onTestConnection={onTestConnection}
       />
       
-      <TwilioIntegration
+      <TwilioIntegrationComponent
         integration={integrations.twilio}
         setIntegrations={setIntegrations}
         loading={loading}

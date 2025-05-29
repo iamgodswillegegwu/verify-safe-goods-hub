@@ -1,177 +1,195 @@
 
-import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
-import { Heart, Share2, ShieldCheck, AlertTriangle, CheckCircle, XCircle, Info } from 'lucide-react';
-import { ExternalProduct } from '@/services/externalApiService';
+import { 
+  CheckCircle, 
+  XCircle, 
+  AlertTriangle, 
+  Star,
+  ExternalLink,
+  Package,
+  Building,
+  Calendar
+} from 'lucide-react';
 
-interface EnhancedProductDisplayProps {
-  products: ExternalProduct[];
-  searchQuery: string;
+interface Product {
+  id: string;
+  name: string;
+  brand?: string;
+  category?: string;
+  description?: string;
+  verified: boolean;
+  confidence: number;
+  source: string;
+  imageUrl?: string;
+  barcode?: string;
 }
 
-const EnhancedProductDisplay = ({ products, searchQuery }: EnhancedProductDisplayProps) => {
-  const { toast } = useToast();
-  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+interface EnhancedProductDisplayProps {
+  product: Product;
+  similarProducts?: Product[];
+  onViewDetails?: (product: Product) => void;
+}
 
-  const handleAddToFavorites = (productId: string) => {
-    setFavorites(prev => new Set([...prev, productId]));
-    toast({
-      title: "Added to Favorites",
-      description: "Product has been added to your favorites list.",
-    });
-  };
-
-  const handleShare = async (product: ExternalProduct) => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: product.name,
-          text: `Check out this product: ${product.name}`,
-          url: window.location.href,
-        });
-      } catch (error) {
-        console.log('Share failed:', error);
-      }
-    } else {
-      navigator.clipboard.writeText(window.location.href);
-      toast({
-        title: "Link Copied",
-        description: "Product link copied to clipboard.",
-      });
-    }
-  };
-
-  const getVerificationIcon = (verified: boolean, confidence: number) => {
-    if (verified && confidence > 0.8) {
-      return <ShieldCheck className="h-4 w-4 text-green-600" />;
-    } else if (verified && confidence > 0.6) {
-      return <CheckCircle className="h-4 w-4 text-blue-600" />;
-    } else if (confidence > 0.4) {
-      return <AlertTriangle className="h-4 w-4 text-yellow-600" />;
-    } else {
-      return <XCircle className="h-4 w-4 text-red-600" />;
-    }
-  };
-
+const EnhancedProductDisplay = ({ 
+  product, 
+  similarProducts = [], 
+  onViewDetails 
+}: EnhancedProductDisplayProps) => {
   const getVerificationBadge = (verified: boolean, confidence: number) => {
     if (verified && confidence > 0.8) {
-      return <Badge className="bg-green-100 text-green-800">Verified</Badge>;
+      return (
+        <Badge className="bg-green-100 text-green-800">
+          <CheckCircle className="h-3 w-3 mr-1" />
+          Verified
+        </Badge>
+      );
     } else if (verified && confidence > 0.6) {
-      return <Badge className="bg-blue-100 text-blue-800">Likely Genuine</Badge>;
-    } else if (confidence > 0.4) {
-      return <Badge variant="secondary">Uncertain</Badge>;
-    } else {
-      return <Badge variant="destructive">High Risk</Badge>;
-    }
-  };
-
-  const getRiskAlert = (verified: boolean, confidence: number) => {
-    if (!verified && confidence < 0.4) {
       return (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mt-4">
-          <div className="flex items-center gap-2 text-red-800">
-            <AlertTriangle className="h-4 w-4" />
-            <span className="font-medium">High Risk Product</span>
-          </div>
-          <p className="text-sm text-red-700 mt-1">
-            This product could not be verified and may be counterfeit. Exercise caution before purchase.
-          </p>
-        </div>
-      );
-    } else if (confidence < 0.6) {
-      return (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-4">
-          <div className="flex items-center gap-2 text-yellow-800">
-            <Info className="h-4 w-4" />
-            <span className="font-medium">Verification Incomplete</span>
-          </div>
-          <p className="text-sm text-yellow-700 mt-1">
-            Some verification checks are pending. Check back later for complete results.
-          </p>
-        </div>
+        <Badge className="bg-yellow-100 text-yellow-800">
+          <AlertTriangle className="h-3 w-3 mr-1" />
+          Partially Verified
+        </Badge>
       );
     }
-    return null;
-  };
-
-  if (!products || products.length === 0) {
     return (
-      <Card>
-        <CardContent className="text-center py-8">
-          <p className="text-gray-500">No products found for "{searchQuery}"</p>
-        </CardContent>
-      </Card>
+      <Badge variant="destructive">
+        <XCircle className="h-3 w-3 mr-1" />
+        Unverified
+      </Badge>
     );
-  }
+  };
+
+  const getConfidenceStars = (confidence: number) => {
+    const stars = Math.round(confidence * 5);
+    return Array.from({ length: 5 }, (_, i) => (
+      <Star
+        key={i}
+        className={`h-4 w-4 ${
+          i < stars ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
+        }`}
+      />
+    ));
+  };
 
   return (
-    <div className="space-y-4">
-      {products.map((product) => (
-        <Card key={product.id} className="overflow-hidden">
-          <CardHeader>
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <CardTitle className="flex items-center gap-2">
-                  {product.name}
-                  {getVerificationIcon(product.verified, product.confidence)}
-                </CardTitle>
-                <CardDescription className="mt-1">
-                  {product.brand && <span className="font-medium">{product.brand}</span>}
-                  {product.category && <span className="text-gray-500"> • {product.category}</span>}
-                </CardDescription>
-              </div>
-              <div className="flex items-center gap-2">
-                {getVerificationBadge(product.verified, product.confidence)}
-                <Badge variant="outline" className="text-xs">
-                  {Math.round(product.confidence * 100)}% confidence
-                </Badge>
+    <div className="space-y-6">
+      {/* Main Product Card */}
+      <Card className="overflow-hidden">
+        <CardHeader className="pb-4">
+          <div className="flex items-start justify-between">
+            <div className="space-y-2">
+              <CardTitle className="text-xl flex items-center gap-2">
+                <Package className="h-5 w-5 text-blue-600" />
+                {product.name}
+              </CardTitle>
+              <CardDescription className="flex items-center gap-4">
+                {product.brand && (
+                  <span className="flex items-center gap-1">
+                    <Building className="h-4 w-4" />
+                    {product.brand}
+                  </span>
+                )}
+                {product.barcode && (
+                  <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">
+                    {product.barcode}
+                  </span>
+                )}
+              </CardDescription>
+            </div>
+            <div className="text-right space-y-2">
+              {getVerificationBadge(product.verified, product.confidence)}
+              <div className="flex items-center gap-1">
+                {getConfidenceStars(product.confidence)}
+                <span className="text-sm text-gray-600 ml-1">
+                  {Math.round(product.confidence * 100)}%
+                </span>
               </div>
             </div>
-          </CardHeader>
-          
-          <CardContent>
-            {product.description && (
-              <p className="text-gray-600 mb-4">{product.description}</p>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {product.imageUrl && (
+              <div className="space-y-2">
+                <img
+                  src={product.imageUrl}
+                  alt={product.name}
+                  className="w-full h-48 object-cover rounded-lg border"
+                />
+              </div>
             )}
             
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="text-xs">
-                  Source: {product.source.toUpperCase()}
-                </Badge>
-                {product.barcode && (
-                  <Badge variant="outline" className="text-xs">
-                    {product.barcode}
-                  </Badge>
-                )}
-              </div>
+            <div className="space-y-3">
+              {product.category && (
+                <div>
+                  <h4 className="font-medium text-gray-700">Category</h4>
+                  <Badge variant="outline">{product.category}</Badge>
+                </div>
+              )}
               
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleAddToFavorites(product.id)}
-                  disabled={favorites.has(product.id)}
-                >
-                  <Heart className={`h-4 w-4 ${favorites.has(product.id) ? 'fill-red-500 text-red-500' : ''}`} />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleShare(product)}
-                >
-                  <Share2 className="h-4 w-4" />
-                </Button>
+              {product.description && (
+                <div>
+                  <h4 className="font-medium text-gray-700">Description</h4>
+                  <p className="text-sm text-gray-600">{product.description}</p>
+                </div>
+              )}
+              
+              <div>
+                <h4 className="font-medium text-gray-700">Source</h4>
+                <Badge variant="secondary" className="capitalize">
+                  <ExternalLink className="h-3 w-3 mr-1" />
+                  {product.source}
+                </Badge>
               </div>
             </div>
-            
-            {getRiskAlert(product.verified, product.confidence)}
+          </div>
+
+          {onViewDetails && (
+            <div className="pt-4 border-t">
+              <Button onClick={() => onViewDetails(product)} className="w-full">
+                View Full Details
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Similar Products */}
+      {similarProducts.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Similar Products</CardTitle>
+            <CardDescription>
+              Products that might be related to your search
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {similarProducts.slice(0, 6).map((similar) => (
+                <Card key={similar.id} className="cursor-pointer hover:shadow-md transition-shadow">
+                  <CardContent className="p-4">
+                    <div className="space-y-2">
+                      <h5 className="font-medium text-sm line-clamp-2">{similar.name}</h5>
+                      <div className="flex items-center justify-between">
+                        {getVerificationBadge(similar.verified, similar.confidence)}
+                        <div className="flex items-center gap-1">
+                          {getConfidenceStars(similar.confidence)}
+                        </div>
+                      </div>
+                      {similar.brand && (
+                        <p className="text-xs text-gray-600">{similar.brand}</p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </CardContent>
         </Card>
-      ))}
+      )}
     </div>
   );
 };

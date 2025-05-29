@@ -1,54 +1,63 @@
 
-import { validateProductExternal, ValidationResult } from '../externalApiService';
-import { getCategoryMapping } from './categoryMapper';
+import { ExternalProduct, validateProductExternal, ValidationResult } from '../externalApiService';
 
-export interface ValidationFilters {
+export interface EnhancedValidationRequest {
+  barcode: string;
+  productName?: string;
   category?: string;
-  country?: string;
-  state?: string;
-  nutriScore?: string[];
 }
 
-// Get enhanced validation with location and category context
+export interface EnhancedValidationResponse {
+  isValid: boolean;
+  confidence: number;
+  sources: Array<{
+    name: string;
+    status: 'success' | 'error' | 'pending';
+    verified: boolean;
+    confidence: number;
+  }>;
+  product?: ExternalProduct;
+  recommendations?: string[];
+}
+
 export const getEnhancedValidation = async (
-  productName: string,
-  filters: ValidationFilters = {}
-): Promise<ValidationResult & { productDetails?: any }> => {
+  request: EnhancedValidationRequest
+): Promise<EnhancedValidationResponse> => {
   try {
-    const mappedCategory = filters.category ? getCategoryMapping(filters.category) : undefined;
-    
-    const result = await validateProductExternal(
-      productName,
-      undefined, // barcode
-      mappedCategory
-    );
+    console.log('Getting enhanced validation for:', request);
 
-    // If product found, enrich with additional details
-    if (result.product) {
-      const enrichedProduct = {
-        ...result.product,
-        searchContext: {
-          category: filters.category,
-          location: filters.country ? `${filters.country}${filters.state ? `, ${filters.state}` : ''}` : undefined,
-          nutriScoreFilter: filters.nutriScore
-        }
-      };
+    // Validate using external services
+    const externalResult = await validateProductExternal(request.barcode);
 
-      return {
-        ...result,
-        productDetails: enrichedProduct
-      };
+    // Add recommendations based on confidence level
+    const recommendations: string[] = [];
+    if (externalResult.confidence < 0.7) {
+      recommendations.push('Consider additional verification from manufacturer');
+      recommendations.push('Check product expiry date and batch number');
+    }
+    if (!externalResult.isValid) {
+      recommendations.push('Product may be counterfeit - exercise caution');
     }
 
-    return result;
+    return {
+      isValid: externalResult.isValid,
+      confidence: externalResult.confidence,
+      sources: externalResult.sources,
+      product: externalResult.product,
+      recommendations
+    };
   } catch (error) {
     console.error('Enhanced validation error:', error);
     return {
-      found: false,
-      verified: false,
+      isValid: false,
       confidence: 0,
-      source: 'external' as any,
-      alternatives: []
+      sources: [{
+        name: 'System',
+        status: 'error',
+        verified: false,
+        confidence: 0
+      }],
+      recommendations: ['Unable to validate product - please try again later']
     };
   }
 };

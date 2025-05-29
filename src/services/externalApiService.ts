@@ -1,3 +1,4 @@
+
 import { supabase } from '@/lib/supabase';
 
 export interface ExternalProduct {
@@ -22,6 +23,13 @@ export interface ValidationSource {
   verified: boolean;
   confidence: number;
   details?: any;
+}
+
+export interface ValidationResult {
+  isValid: boolean;
+  confidence: number;
+  sources: ValidationSource[];
+  product?: ExternalProduct;
 }
 
 export interface AggregationFilters {
@@ -101,6 +109,32 @@ export const validateProduct = async (barcode: string): Promise<ExternalProduct 
         confidence: randomConfidence,
         source: 'openfoodfacts'
     };
+};
+
+export const validateProductExternal = async (barcode: string): Promise<ValidationResult> => {
+  try {
+    const product = await validateProduct(barcode);
+    
+    return {
+      isValid: product?.verified || false,
+      confidence: product?.confidence || 0,
+      sources: [
+        {
+          name: 'OpenFoodFacts',
+          status: 'success',
+          verified: product?.verified || false,
+          confidence: product?.confidence || 0
+        }
+      ],
+      product
+    };
+  } catch (error) {
+    return {
+      isValid: false,
+      confidence: 0,
+      sources: []
+    };
+  }
 };
 
 export const fetchProductDetails = async (id: string): Promise<ExternalProduct | null> => {
