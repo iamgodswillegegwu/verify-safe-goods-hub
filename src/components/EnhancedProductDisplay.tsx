@@ -1,19 +1,21 @@
-import { Badge } from '@/components/ui/badge';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { 
   Shield, 
-  Package, 
-  MapPin, 
+  AlertTriangle, 
+  CheckCircle, 
+  XCircle, 
   Calendar, 
-  Award, 
+  MapPin, 
   Building, 
-  Globe,
-  Star,
-  CheckCircle,
-  AlertTriangle,
-  FileText,
-  Factory
+  FileText, 
+  Heart,
+  Search,
+  ExternalLink,
+  Star
 } from 'lucide-react';
 
 interface EnhancedProductDisplayProps {
@@ -21,22 +23,45 @@ interface EnhancedProductDisplayProps {
   similarProducts?: any[];
 }
 
-const getCertifyingOrganization = (source: string, data: any) => {
-  switch (source) {
+const getSourceBadge = (source: string) => {
+  const sourceConfigs = {
+    'internal': { label: 'Internal DB', color: 'bg-blue-100 text-blue-800' },
+    'openfoodfacts': { label: 'Open Food Facts', color: 'bg-green-100 text-green-800' },
+    'fda': { label: 'FDA', color: 'bg-red-100 text-red-800' },
+    'cosing': { label: 'CosIng (EU)', color: 'bg-purple-100 text-purple-800' },
+    'gs1': { label: 'GS1 Global', color: 'bg-orange-100 text-orange-800' },
+    'nafdac': { label: 'NAFDAC (Nigeria)', color: 'bg-emerald-100 text-emerald-800' },
+    'external': { label: 'External', color: 'bg-gray-100 text-gray-800' }
+  };
+
+  const config = sourceConfigs[source as keyof typeof sourceConfigs] || sourceConfigs.external;
+  return (
+    <Badge className={config.color}>
+      {config.label}
+    </Badge>
+  );
+};
+
+const getCertifyingOrganization = (product: any) => {
+  if (product.data?.certifyingOrganization) {
+    return product.data.certifyingOrganization;
+  }
+  
+  switch (product.source) {
     case 'fda':
       return 'FDA (United States)';
-    case 'nafdac':
-      return 'NAFDAC (Nigeria)';
     case 'openfoodfacts':
       return 'Open Food Facts (Global)';
     case 'cosing':
       return 'CosIng (European Union)';
     case 'gs1':
-      return 'GS1 (Global)';
+      return 'GS1 Global Registry';
+    case 'nafdac':
+      return 'NAFDAC (Nigeria)';
     case 'internal':
-      return data?.certifying_organization || 'Internal Database';
+      return 'Internal Database';
     default:
-      return 'Not Found or Missing';
+      return 'External Source';
   }
 };
 
@@ -328,7 +353,7 @@ const EnhancedProductDisplay = ({ result, similarProducts = [] }: EnhancedProduc
                   <div className="flex justify-between">
                     <span className="text-gray-600">Registration Body:</span>
                     <span className="font-medium text-right">
-                      {getCertifyingOrganization(productData?.source || 'internal', productData)}
+                      {getCertifyingOrganization(productData)}
                     </span>
                   </div>
                   <div className="flex justify-between">

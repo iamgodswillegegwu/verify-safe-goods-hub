@@ -3,7 +3,8 @@ import {
   searchProductsQuick, 
   validateProductExternal, 
   ExternalProduct,
-  ValidationResult 
+  ValidationResult,
+  APISource
 } from './externalApiService';
 
 export interface EnhancedSearchFilters {
@@ -112,7 +113,7 @@ export const performEnhancedSearch = async (
         externalProducts.push(...cosmeticResults.map(p => ({
           ...p,
           category: 'cosmetics',
-          source: 'cosing' as const
+          source: 'cosing' as APISource
         })));
       }
       
@@ -125,7 +126,7 @@ export const performEnhancedSearch = async (
             brand: 'External Source',
             category: 'supplement',
             verified: true,
-            source: 'fda',
+            source: 'fda' as APISource,
             data: {},
             imageUrl: '/placeholder.svg'
           });
@@ -155,7 +156,7 @@ export const performEnhancedSearch = async (
               brand: product.manufacturer,
               category: product.category,
               verified: product.verified,
-              source: 'nafdac',
+              source: 'nafdac' as APISource,
               data: {
                 ...product,
                 certifyingOrganization: 'NAFDAC (Nigeria)',
