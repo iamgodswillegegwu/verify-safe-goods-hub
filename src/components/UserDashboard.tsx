@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { User, Heart, Clock, BarChart3, Settings, Star, Shield } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -357,7 +356,7 @@ const UserDashboard = () => {
   );
 
   return (
-    <SidebarProvider collapsedWidth={56}>
+    <SidebarProvider>
       <div className="min-h-screen flex w-full bg-gradient-to-br from-slate-50 to-blue-50">
         <UserSidebar />
         

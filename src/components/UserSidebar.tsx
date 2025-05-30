@@ -39,7 +39,7 @@ const menuItems = [
 ];
 
 export function UserSidebar() {
-  const { collapsed } = useSidebar();
+  const { open } = useSidebar();
   const location = useLocation();
   const currentPath = location.pathname;
 
@@ -53,16 +53,13 @@ export function UserSidebar() {
 
   return (
     <Sidebar
-      className={collapsed ? "w-14" : "w-60"}
-      collapsible
+      className={!open ? "w-14" : "w-60"}
+      collapsible="icon"
     >
       <SidebarTrigger className="m-2 self-end" />
 
       <SidebarContent>
-        <SidebarGroup
-          open={isExpanded}
-          onOpenChange={() => {}}
-        >
+        <SidebarGroup>
           <SidebarGroupLabel className="text-blue-600 font-semibold">
             User Dashboard
           </SidebarGroupLabel>
@@ -78,7 +75,7 @@ export function UserSidebar() {
                       className={({ isActive }) => getNavCls({ isActive })}
                     >
                       <item.icon className="mr-2 h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
+                      {open && <span>{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
