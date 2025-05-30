@@ -29,12 +29,13 @@ export const verifyProduct = async (
   console.log('Verifying product:', { productName, userId, filters });
 
   try {
-    // Check internal database first
+    // Check internal database first with comprehensive product details
     const { data: internalProduct, error: internalError } = await supabase
       .from('products')
       .select(`
         *,
-        manufacturer:manufacturers(*)
+        manufacturer:manufacturers(*),
+        category:categories(*)
       `)
       .ilike('name', `%${productName}%`)
       .eq('status', 'approved')
@@ -60,21 +61,33 @@ export const verifyProduct = async (
       }
     }
 
-    // If found in internal database, return verified result
+    // If found in internal database, return verified result with comprehensive details
     if (internalProduct) {
       return {
         result: 'verified',
-        product: internalProduct,
+        product: {
+          ...internalProduct,
+          // Ensure we have the image URL properly formatted
+          image_url: internalProduct.image_url || null,
+          // Add any missing fields with defaults
+          description: internalProduct.description || 'No description available',
+          manufacturing_date: internalProduct.manufacturing_date || null,
+          expiry_date: internalProduct.expiry_date || null,
+          allergens: internalProduct.allergens || [],
+          nutrition_facts: internalProduct.nutrition_facts || {},
+          certification_documents: internalProduct.certification_documents || []
+        },
         timestamp: new Date().toISOString()
       };
     }
 
-    // If not found internally, search for similar products in the database
+    // If not found internally, search for similar products in the database with full details
     const { data: similarProducts, error: similarError } = await supabase
       .from('products')
       .select(`
         *,
-        manufacturer:manufacturers(*)
+        manufacturer:manufacturers(*),
+        category:categories(*)
       `)
       .ilike('name', `%${productName.split(' ')[0]}%`)
       .eq('status', 'approved')
@@ -99,18 +112,19 @@ export const verifyProduct = async (
   }
 };
 
-// Get similar products based on partial name match and categories
+// Get similar products based on partial name match and categories with comprehensive details
 export const getSimilarProducts = async (
   productName: string,
   filters: SearchFilters = {}
 ): Promise<any[]> => {
   try {
-    // Build query for internal similar products
+    // Build query for internal similar products with full details
     let query = supabase
       .from('products')
       .select(`
         *,
-        manufacturer:manufacturers(*)
+        manufacturer:manufacturers(*),
+        category:categories(*)
       `)
       .eq('status', 'approved')
       .neq('name', productName);
@@ -165,13 +179,32 @@ export const getSimilarProducts = async (
       const externalProducts = await searchProductsQuick(significantTerm);
       externalSimilar = externalProducts
         .filter(p => p.name.toLowerCase() !== productName.toLowerCase())
+        .map(p => ({
+          ...p,
+          // Ensure consistent field mapping for external products
+          manufacturer: p.brand,
+          verified: p.verified,
+          imageUrl: p.imageUrl,
+          description: p.description || 'External product',
+          category: p.category,
+          nutriScore: p.nutriScore,
+          source: p.source
+        }))
         .slice(0, 3);
     } catch (externalError) {
       console.error('Failed to fetch external similar products:', externalError);
     }
 
-    // Combine results, prioritizing internal database results
-    return [...(internalSimilar || []), ...externalSimilar];
+    // Combine results, prioritizing internal database results with enhanced mapping
+    const mappedInternal = (internalSimilar || []).map(p => ({
+      ...p,
+      manufacturer: p.manufacturer?.company_name || 'Unknown',
+      verified: true,
+      imageUrl: p.image_url,
+      source: 'internal'
+    }));
+
+    return [...mappedInternal, ...externalSimilar];
   } catch (error) {
     console.error('Error in getSimilarProducts:', error);
     return [];

@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { CheckCircle, AlertTriangle, Calendar, Shield, Building, ExternalLink, Heart, Flag, MapPin, Award } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Calendar, Shield, Building, ExternalLink, Heart, Flag, MapPin, Award, Package, FileText, Factory } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,18 +21,48 @@ interface VerificationResultProps {
     registrationDate: string;
     certificationNumber: string;
     similarProducts?: Array<{
+      id?: string;
       name: string;
       manufacturer: string;
       verified?: boolean;
+      imageUrl?: string;
+      description?: string;
+      category?: string;
+      nutriScore?: string;
+      source?: string;
     }>;
     product?: {
       id: string;
+      name: string;
+      description?: string;
+      image_url?: string;
+      batch_number?: string;
+      manufacturing_date?: string;
+      expiry_date?: string;
       nutri_score?: string;
       country?: string;
       state?: string;
       city?: string;
       allergens?: string[];
       nutrition_facts?: Record<string, string | number>;
+      certification_documents?: string[];
+      manufacturer?: {
+        company_name: string;
+        registration_number?: string;
+      };
+      category?: {
+        name: string;
+      };
+    };
+    externalData?: {
+      name: string;
+      imageUrl?: string;
+      description?: string;
+      brand?: string;
+      category?: string;
+      nutriScore?: string;
+      barcode?: string;
+      source: string;
     };
   };
 }
@@ -57,6 +87,156 @@ const NutriScoreBadge = ({ score }: NutriScoreProps) => {
   );
 };
 
+const getCertificationBody = (source?: string, country?: string) => {
+  if (source === 'nafdac' || country?.toLowerCase() === 'nigeria') return 'NAFDAC';
+  if (source === 'fda' || country?.toLowerCase() === 'united states') return 'FDA';
+  if (source === 'openfoodfacts') return 'Open Food Facts';
+  return 'Regulatory Authority';
+};
+
+const ProductDetailsCard = ({ product, externalData, isVerified }: { 
+  product?: any; 
+  externalData?: any; 
+  isVerified: boolean;
+}) => {
+  const displayData = product || externalData;
+  const imageUrl = displayData?.image_url || displayData?.imageUrl;
+  const productName = displayData?.name || 'Unknown Product';
+  const description = displayData?.description || 'No description available';
+  const manufacturer = displayData?.manufacturer?.company_name || displayData?.brand || 'Unknown Manufacturer';
+  const manufacturingNumber = displayData?.batch_number || displayData?.barcode || 'N/A';
+  const category = displayData?.category?.name || displayData?.category || 'Unknown Category';
+  const nutriScore = displayData?.nutri_score || displayData?.nutriScore;
+  const certificationBody = getCertificationBody(externalData?.source, displayData?.country);
+
+  return (
+    <div className="space-y-4">
+      {/* Product Image and Basic Info */}
+      <div className="flex gap-4">
+        {imageUrl ? (
+          <img 
+            src={imageUrl} 
+            alt={productName}
+            className="w-24 h-24 object-cover rounded-lg border"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
+            }}
+          />
+        ) : (
+          <div className="w-24 h-24 bg-gray-100 rounded-lg border flex items-center justify-center">
+            <Package className="h-8 w-8 text-gray-400" />
+          </div>
+        )}
+        
+        <div className="flex-1">
+          <h4 className="font-semibold text-lg text-slate-800">{productName}</h4>
+          <p className="text-sm text-slate-600 mt-1">{description}</p>
+          
+          <div className="flex flex-wrap gap-2 mt-2">
+            {nutriScore && <NutriScoreBadge score={nutriScore} />}
+            <Badge variant="outline" className="text-xs">
+              {category}
+            </Badge>
+            {externalData?.source && (
+              <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">
+                Source: {externalData.source.toUpperCase()}
+              </Badge>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Detailed Information Grid */}
+      <div className="grid md:grid-cols-2 gap-4 text-sm">
+        <div className="flex items-center gap-2">
+          <Building className="h-4 w-4 text-slate-500" />
+          <span className="text-slate-600">Manufacturer:</span>
+          <span className="font-medium">{manufacturer}</span>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <FileText className="h-4 w-4 text-slate-500" />
+          <span className="text-slate-600">Manufacturing Number:</span>
+          <span className="font-medium">{manufacturingNumber}</span>
+        </div>
+        
+        {product?.manufacturing_date && (
+          <div className="flex items-center gap-2">
+            <Factory className="h-4 w-4 text-slate-500" />
+            <span className="text-slate-600">Date Manufactured:</span>
+            <span className="font-medium">{new Date(product.manufacturing_date).toLocaleDateString()}</span>
+          </div>
+        )}
+        
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-slate-500" />
+          <span className="text-slate-600">Date Registered:</span>
+          <span className="font-medium">
+            {product?.created_at ? new Date(product.created_at).toLocaleDateString() : 'N/A'}
+          </span>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <Shield className="h-4 w-4 text-slate-500" />
+          <span className="text-slate-600">Certification Body:</span>
+          <span className="font-medium">{certificationBody}</span>
+        </div>
+        
+        {displayData?.country && (
+          <div className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-slate-500" />
+            <span className="text-slate-600">Origin:</span>
+            <span className="font-medium">
+              {displayData.city && `${displayData.city}, `}
+              {displayData.state && `${displayData.state}, `}
+              {displayData.country}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Additional Details */}
+      {product?.allergens && product.allergens.length > 0 && (
+        <div>
+          <h5 className="font-semibold text-slate-700 mb-2">⚠️ Allergens</h5>
+          <div className="flex flex-wrap gap-2">
+            {product.allergens.map((allergen: string, index: number) => (
+              <Badge key={index} variant="outline" className="border-orange-300 text-orange-700 bg-orange-50">
+                {allergen}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {product?.nutrition_facts && (
+        <div>
+          <h5 className="font-semibold text-slate-700 mb-2">📊 Nutrition Facts (per serving)</h5>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-white p-3 rounded-lg border">
+            {Object.entries(product.nutrition_facts).map(([key, value]) => (
+              <div key={key} className="text-center">
+                <div className="text-xs text-slate-500 capitalize">{key}</div>
+                <div className="font-semibold text-slate-700">{String(value)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {product?.expiry_date && (
+        <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+          <div className="flex items-center gap-2 text-yellow-800">
+            <Calendar className="h-4 w-4" />
+            <span className="font-medium">Expiry Date:</span>
+            <span>{new Date(product.expiry_date).toLocaleDateString()}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const EnhancedVerificationResult = ({ result }: VerificationResultProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -70,7 +250,8 @@ const EnhancedVerificationResult = ({ result }: VerificationResultProps) => {
     registrationDate,
     certificationNumber,
     similarProducts = [],
-    product
+    product,
+    externalData
   } = result;
 
   useEffect(() => {
@@ -139,7 +320,7 @@ const EnhancedVerificationResult = ({ result }: VerificationResultProps) => {
     }
 
     try {
-      await reportProduct(user.id, product.id, "suspicious", "User reported suspicious product");
+      await reportProduct(product.id, user.id, "suspicious", "User reported suspicious product");
       toast({
         title: "Product Reported",
         description: "Thank you for reporting. We'll investigate this product.",
@@ -193,112 +374,43 @@ const EnhancedVerificationResult = ({ result }: VerificationResultProps) => {
       </CardHeader>
 
       <CardContent className="p-6 space-y-6">
-        {/* Product Details */}
-        <div>
-          <h3 className="font-semibold text-lg text-slate-800 mb-3">{productName}</h3>
-          
-          {isVerified && product && (
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <Badge variant="outline" className="border-green-300 text-green-700 bg-green-50">
-                  <Shield className="h-3 w-3 mr-1" />
-                  Verified Safe
-                </Badge>
-                
-                {product.nutri_score && (
-                  <NutriScoreBadge score={product.nutri_score} />
-                )}
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-4 text-sm">
-                <div className="flex items-center gap-2">
-                  <Building className="h-4 w-4 text-slate-500" />
-                  <span className="text-slate-600">Manufacturer:</span>
-                  <span className="font-medium">{manufacturer}</span>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-slate-500" />
-                  <span className="text-slate-600">Registered:</span>
-                  <span className="font-medium">{new Date(registrationDate).toLocaleDateString()}</span>
-                </div>
-                
-                {product.country && (
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-slate-500" />
-                    <span className="text-slate-600">Origin:</span>
-                    <span className="font-medium">{product.city}, {product.state}, {product.country}</span>
-                  </div>
-                )}
-                
-                <div className="flex items-center gap-2 md:col-span-2">
-                  <Shield className="h-4 w-4 text-slate-500" />
-                  <span className="text-slate-600">Certificate:</span>
-                  <span className="font-medium">{certificationNumber}</span>
-                </div>
-              </div>
-
-              {/* Allergens */}
-              {product.allergens && product.allergens.length > 0 && (
-                <div>
-                  <h4 className="font-semibold text-slate-700 mb-2">⚠️ Allergens</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {product.allergens.map((allergen, index) => (
-                      <Badge key={index} variant="outline" className="border-orange-300 text-orange-700 bg-orange-50">
-                        {allergen}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Nutrition Facts */}
-              {product.nutrition_facts && (
-                <div>
-                  <h4 className="font-semibold text-slate-700 mb-2">📊 Nutrition Facts (per serving)</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-white p-3 rounded-lg border">
-                    {Object.entries(product.nutrition_facts).map(([key, value]) => (
-                      <div key={key} className="text-center">
-                        <div className="text-xs text-slate-500 capitalize">{key}</div>
-                        <div className="font-semibold text-slate-700">{String(value)}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="bg-green-100 p-4 rounded-lg">
-                <h4 className="font-semibold text-green-800 mb-2">🎉 Congratulations!</h4>
-                <p className="text-green-700 text-sm">
-                  This product has been verified as authentic and safe for consumption. 
-                  It meets all regulatory standards and is registered with authorized manufacturers.
-                </p>
-              </div>
+        {isVerified ? (
+          <div className="space-y-4">
+            <ProductDetailsCard 
+              product={product} 
+              externalData={externalData} 
+              isVerified={isVerified} 
+            />
+            
+            <div className="bg-green-100 p-4 rounded-lg">
+              <h4 className="font-semibold text-green-800 mb-2">🎉 Congratulations!</h4>
+              <p className="text-green-700 text-sm">
+                This product has been verified as authentic and safe for consumption. 
+                It meets all regulatory standards and is registered with authorized manufacturers.
+              </p>
             </div>
-          )}
-
-          {!isVerified && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="border-orange-300 text-orange-700 bg-orange-50">
-                  <AlertTriangle className="h-3 w-3 mr-1" />
-                  Not Verified
-                </Badge>
-              </div>
-
-              <div className="bg-orange-100 p-4 rounded-lg">
-                <h4 className="font-semibold text-orange-800 mb-2">⚠️ Warning</h4>
-                <p className="text-orange-700 text-sm mb-3">
-                  This product was not found in our verified database or has different manufacturer information 
-                  than registered. Please exercise caution before use.
-                </p>
-                <p className="text-orange-600 text-xs">
-                  Consider contacting the manufacturer directly or consulting with relevant authorities.
-                </p>
-              </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {externalData && (
+              <ProductDetailsCard 
+                externalData={externalData} 
+                isVerified={false} 
+              />
+            )}
+            
+            <div className="bg-orange-100 p-4 rounded-lg">
+              <h4 className="font-semibold text-orange-800 mb-2">⚠️ Warning</h4>
+              <p className="text-orange-700 text-sm mb-3">
+                This product was not found in our verified database or has different manufacturer information 
+                than registered. Please exercise caution before use.
+              </p>
+              <p className="text-orange-600 text-xs">
+                Consider contacting the manufacturer directly or consulting with relevant authorities.
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Similar/Recommended Products */}
         {similarProducts.length > 0 && (
@@ -312,23 +424,7 @@ const EnhancedVerificationResult = ({ result }: VerificationResultProps) => {
               
               <div className="space-y-2">
                 {similarProducts.map((product, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200">
-                    <div>
-                      <p className="font-medium text-slate-800">{product.name}</p>
-                      <p className="text-sm text-slate-600">{product.manufacturer}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {product.verified && (
-                        <Badge variant="outline" className="border-green-300 text-green-700 bg-green-50">
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                          Verified
-                        </Badge>
-                      )}
-                      <Button size="sm" variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-50">
-                        View Details
-                      </Button>
-                    </div>
-                  </div>
+                  <SimilarProductCard key={index} product={product} />
                 ))}
               </div>
             </div>
@@ -346,6 +442,61 @@ const EnhancedVerificationResult = ({ result }: VerificationResultProps) => {
         </div>
       </CardContent>
     </Card>
+  );
+};
+
+// Separate component for similar products with clickable "View Details"
+const SimilarProductCard = ({ product }: { product: any }) => {
+  const [showDetails, setShowDetails] = useState(false);
+
+  return (
+    <div className="bg-white rounded-lg border border-slate-200">
+      <div className="flex items-center justify-between p-3">
+        <div className="flex items-center gap-3">
+          {product.imageUrl && (
+            <img 
+              src={product.imageUrl} 
+              alt={product.name}
+              className="w-12 h-12 object-cover rounded"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+              }}
+            />
+          )}
+          <div>
+            <p className="font-medium text-slate-800">{product.name}</p>
+            <p className="text-sm text-slate-600">{product.manufacturer}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {product.verified && (
+            <Badge variant="outline" className="border-green-300 text-green-700 bg-green-50">
+              <CheckCircle className="h-3 w-3 mr-1" />
+              Verified
+            </Badge>
+          )}
+          <Button 
+            size="sm" 
+            variant="outline" 
+            className="text-blue-600 border-blue-200 hover:bg-blue-50"
+            onClick={() => setShowDetails(!showDetails)}
+          >
+            {showDetails ? 'Hide Details' : 'View Details'}
+          </Button>
+        </div>
+      </div>
+      
+      {showDetails && (
+        <div className="border-t border-slate-200 p-4">
+          <ProductDetailsCard 
+            product={product} 
+            externalData={product.source !== 'internal' ? product : undefined}
+            isVerified={product.verified || false} 
+          />
+        </div>
+      )}
+    </div>
   );
 };
 
