@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Search, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -144,7 +143,14 @@ const ProductVerificationSection = ({
                 {verificationResult && (
                   <div className="mt-6">
                     <EnhancedProductDisplay 
-                      result={verificationResult} 
+                      productName={verificationResult.productName}
+                      isVerified={verificationResult.isVerified}
+                      manufacturer={verificationResult.manufacturer}
+                      registrationDate={verificationResult.registrationDate}
+                      certificationNumber={verificationResult.certificationNumber}
+                      product={verificationResult.product}
+                      externalData={verificationResult.externalData}
+                      searchFilters={verificationResult.searchFilters}
                       similarProducts={verificationResult.similarProducts || []}
                     />
                   </div>
