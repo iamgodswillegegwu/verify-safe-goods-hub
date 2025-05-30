@@ -66,7 +66,7 @@ export function AdminSidebar() {
                     <NavLink 
                       to={item.url} 
                       end={item.end}
-                      className={({ isActive }) => getNavCls({ isActive: isActive(item.url, item.end) })}
+                      className={({ isActive }) => getNavCls({ isActive: isActive })}
                     >
                       <item.icon className="h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}
@@ -81,3 +81,6 @@ export function AdminSidebar() {
     </Sidebar>
   );
 }
+
+// Add default export to fix SuperAdmin.tsx import
+export default AdminSidebar;
