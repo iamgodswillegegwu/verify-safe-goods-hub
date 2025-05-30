@@ -27,12 +27,25 @@ const CreateUserDialog = ({ isOpen, onClose, onUserCreated }: CreateUserDialogPr
     phone: '',
     role: 'consumer' as User['role']
   });
+  const [isCreating, setIsCreating] = useState(false);
   const { toast } = useToast();
 
   const handleCreateUser = async () => {
+    if (!createFormData.email || !createFormData.password) {
+      toast({
+        title: "Error",
+        description: "Email and password are required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreating(true);
+    
     try {
       console.log('Creating new user:', createFormData.email);
       
+      // Create the user in auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: createFormData.email,
         password: createFormData.password,
@@ -56,43 +69,56 @@ const CreateUserDialog = ({ isOpen, onClose, onUserCreated }: CreateUserDialogPr
       }
 
       if (authData.user) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({
-            role: createFormData.role,
-            first_name: createFormData.first_name,
-            last_name: createFormData.last_name,
-            phone: createFormData.phone,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', authData.user.id);
+        // Wait a moment for the trigger to create the profile
+        setTimeout(async () => {
+          try {
+            // Update the role in the profile
+            const { error: profileError } = await supabase
+              .from('profiles')
+              .update({
+                role: createFormData.role,
+                first_name: createFormData.first_name,
+                last_name: createFormData.last_name,
+                phone: createFormData.phone,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', authData.user.id);
 
-        if (profileError) {
-          console.error('Error updating profile:', profileError);
-          toast({
-            title: "Warning",
-            description: "User created but profile update failed. Please edit the user to set proper details.",
-            variant: "destructive",
-          });
-        }
+            if (profileError) {
+              console.error('Error updating profile:', profileError);
+              toast({
+                title: "Warning",
+                description: "User created but profile update failed. Please edit the user to set proper details.",
+                variant: "destructive",
+              });
+            } else {
+              console.log('User created successfully');
+              toast({
+                title: "Success",
+                description: "User created successfully",
+              });
+            }
+
+            onClose();
+            setCreateFormData({
+              email: '',
+              password: '',
+              first_name: '',
+              last_name: '',
+              phone: '',
+              role: 'consumer'
+            });
+            onUserCreated();
+          } catch (error) {
+            console.error('Error updating profile:', error);
+            toast({
+              title: "Warning",
+              description: "User created but profile update failed",
+              variant: "destructive",
+            });
+          }
+        }, 1000);
       }
-
-      console.log('User created successfully');
-      toast({
-        title: "Success",
-        description: "User created successfully",
-      });
-
-      onClose();
-      setCreateFormData({
-        email: '',
-        password: '',
-        first_name: '',
-        last_name: '',
-        phone: '',
-        role: 'consumer'
-      });
-      onUserCreated();
     } catch (error) {
       console.error('Error creating user:', error);
       toast({
@@ -100,6 +126,8 @@ const CreateUserDialog = ({ isOpen, onClose, onUserCreated }: CreateUserDialogPr
         description: "Failed to create user",
         variant: "destructive",
       });
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -175,9 +203,9 @@ const CreateUserDialog = ({ isOpen, onClose, onUserCreated }: CreateUserDialogPr
             <Button 
               onClick={handleCreateUser} 
               className="flex-1"
-              disabled={!createFormData.email || !createFormData.password}
+              disabled={!createFormData.email || !createFormData.password || isCreating}
             >
-              Create User
+              {isCreating ? 'Creating...' : 'Create User'}
             </Button>
             <Button variant="outline" onClick={onClose}>
               Cancel

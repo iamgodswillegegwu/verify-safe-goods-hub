@@ -112,8 +112,8 @@ const searchInternalDatabase = async (query: string): Promise<ExternalProduct[]>
     return internalProducts.map(product => ({
       id: product.id,
       name: product.name,
-      brand: product.manufacturer?.company_name,
-      category: product.category?.name,
+      brand: product.manufacturer?.company_name || 'Unknown',
+      category: product.category?.name || 'Unknown',
       description: product.description,
       verified: true,
       confidence: 0.95,

@@ -9,7 +9,7 @@ export interface Profile {
   phone?: string;
   date_of_birth?: string;
   profile_picture_url?: string;
-  role?: string;
+  role?: 'consumer' | 'manufacturer' | 'admin' | 'super_admin' | 'test_user';
   preferences?: any;
   created_at?: string;
   updated_at?: string;
