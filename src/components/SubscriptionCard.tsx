@@ -12,7 +12,7 @@ interface SubscriptionPlan {
   price: number;
   features: string[];
   scan_limit: number | null;
-  is_active: boolean;
+  is_active?: boolean;
 }
 
 interface SubscriptionCardProps {

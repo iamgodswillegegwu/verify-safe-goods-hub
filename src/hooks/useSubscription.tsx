@@ -10,6 +10,7 @@ interface SubscriptionPlan {
   price: number;
   features: string[];
   scan_limit: number | null;
+  is_active?: boolean;
 }
 
 interface SubscriptionData {
@@ -35,14 +36,34 @@ export const useSubscription = () => {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('check-subscription', {
-        headers: {
-          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-        },
-      });
+      // Check if user has an active subscription
+      const { data: subscriberData, error: subscriberError } = await supabase
+        .from('subscribers')
+        .select(`
+          *,
+          subscription_plans (*)
+        `)
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle();
 
-      if (error) throw error;
-      setSubscription(data);
+      if (subscriberError) throw subscriberError;
+
+      if (subscriberData && subscriberData.subscription_plans) {
+        setSubscription({
+          subscribed: true,
+          plan: subscriberData.subscription_plans as SubscriptionPlan,
+          status: subscriberData.status,
+          current_period_end: subscriberData.current_period_end,
+          cancel_at_period_end: subscriberData.cancel_at_period_end
+        });
+      } else {
+        setSubscription({
+          subscribed: false,
+          plan: null,
+          status: 'inactive'
+        });
+      }
     } catch (error) {
       console.error('Error checking subscription:', error);
       toast({
@@ -67,24 +88,11 @@ export const useSubscription = () => {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: { planId, isAnnual },
-        headers: {
-          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-        },
+      // For now, just show a placeholder message
+      toast({
+        title: "Coming Soon",
+        description: "Subscription checkout will be available soon!",
       });
-
-      if (error) throw error;
-
-      if (data.url) {
-        window.open(data.url, '_blank');
-      } else if (data.success) {
-        toast({
-          title: "Success",
-          description: data.message,
-        });
-        await checkSubscription();
-      }
     } catch (error) {
       console.error('Error creating checkout session:', error);
       toast({
@@ -102,16 +110,11 @@ export const useSubscription = () => {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('customer-portal', {
-        headers: {
-          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-        },
+      // For now, just show a placeholder message
+      toast({
+        title: "Coming Soon",
+        description: "Customer portal will be available soon!",
       });
-
-      if (error) throw error;
-      if (data.url) {
-        window.open(data.url, '_blank');
-      }
     } catch (error) {
       console.error('Error opening customer portal:', error);
       toast({

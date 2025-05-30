@@ -32,9 +32,10 @@ const menuItems = [
 ];
 
 export function AdminSidebar() {
-  const { collapsed } = useSidebar();
+  const { state } = useSidebar();
   const location = useLocation();
   const currentPath = location.pathname;
+  const collapsed = state === 'collapsed';
 
   const isActive = (path: string, end?: boolean) => 
     end ? currentPath === path : currentPath.startsWith(path);
@@ -66,7 +67,7 @@ export function AdminSidebar() {
                     <NavLink 
                       to={item.url} 
                       end={item.end}
-                      className={({ isActive }) => getNavCls({ isActive: isActive })}
+                      className={({ isActive }) => getNavCls({ isActive })}
                     >
                       <item.icon className="h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}

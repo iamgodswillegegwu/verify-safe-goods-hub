@@ -109,10 +109,10 @@ const PaymentManagement = () => {
       }).reduce((sum, t) => sum + Number(t.amount), 0) || 0;
 
       setStats({
-        totalRevenue,
+        totalRevenue: totalRevenue / 100, // Convert from cents to dollars
         totalSubscribers,
         activeSubscribers,
-        monthlyRevenue,
+        monthlyRevenue: monthlyRevenue / 100, // Convert from cents to dollars
       });
 
     } catch (error) {
@@ -287,7 +287,7 @@ const PaymentManagement = () => {
                       <div className="text-sm text-gray-500">{transaction.profiles?.email}</div>
                     </div>
                   </TableCell>
-                  <TableCell>${transaction.amount}</TableCell>
+                  <TableCell>${(transaction.amount / 100).toFixed(2)}</TableCell>
                   <TableCell>{getStatusBadge(transaction.status)}</TableCell>
                   <TableCell>{transaction.description}</TableCell>
                   <TableCell>
