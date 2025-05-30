@@ -7,8 +7,7 @@ import { useToast } from './use-toast';
 interface SubscriptionPlan {
   id: string;
   name: string;
-  price_monthly: number;
-  price_yearly: number;
+  price: number;
   features: string[];
   scan_limit: number | null;
 }

@@ -9,69 +9,27 @@ import { supabase } from '@/integrations/supabase/client';
 import Navigation from '@/components/Navigation';
 import SubscriptionCard from '@/components/SubscriptionCard';
 
-interface Plan {
-  id: string;
-  name: string;
-  price_monthly: number;
-  price_yearly: number;
-  features: string[];
-  scan_limit: number | null;
-  is_active: boolean;
-}
-
 const Subscription = () => {
   const [isAnnual, setIsAnnual] = useState(false);
-  const [plans, setPlans] = useState<Plan[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [plans, setPlans] = useState([]);
   const { user } = useAuth();
   const { subscription } = useSubscription();
 
   useEffect(() => {
     const fetchPlans = async () => {
-      setLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from('subscription_plans')
-          .select('*')
-          .eq('is_active', true)
-          .order('price_monthly', { ascending: true });
+      const { data, error } = await supabase
+        .from('subscription_plans')
+        .select('*')
+        .eq('is_active', true)
+        .order('price', { ascending: true });
 
-        if (error) throw error;
-        
-        if (data) {
-          setPlans(data.map(plan => ({
-            id: plan.id,
-            name: plan.name,
-            price_monthly: plan.price_monthly || 0,
-            price_yearly: plan.price_yearly || 0,
-            features: Array.isArray(plan.features) ? plan.features : [],
-            scan_limit: plan.scan_limit,
-            is_active: plan.is_active || false
-          })));
-        }
-      } catch (error) {
-        console.error('Error fetching plans:', error);
-      } finally {
-        setLoading(false);
+      if (!error && data) {
+        setPlans(data);
       }
     };
 
     fetchPlans();
   }, []);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-        <Navigation />
-        <main className="container mx-auto px-4 py-12">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-slate-600">Loading subscription plans...</p>
-          </div>
-        </main>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">

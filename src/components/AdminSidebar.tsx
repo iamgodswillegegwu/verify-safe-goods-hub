@@ -32,7 +32,7 @@ const menuItems = [
 ];
 
 export function AdminSidebar() {
-  const { open } = useSidebar();
+  const { collapsed } = useSidebar();
   const location = useLocation();
   const currentPath = location.pathname;
 
@@ -46,7 +46,7 @@ export function AdminSidebar() {
 
   return (
     <Sidebar
-      className={!open ? "w-14" : "w-60"}
+      className={collapsed ? "w-14" : "w-60"}
       collapsible="icon"
     >
       <SidebarTrigger className="m-2 self-end" />
@@ -55,7 +55,7 @@ export function AdminSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel className="text-blue-600 font-semibold flex items-center gap-2">
             <Shield className="h-4 w-4" />
-            {open && "Admin Dashboard"}
+            {!collapsed && "Admin Dashboard"}
           </SidebarGroupLabel>
 
           <SidebarGroupContent>
@@ -66,10 +66,10 @@ export function AdminSidebar() {
                     <NavLink 
                       to={item.url} 
                       end={item.end}
-                      className={({ isActive }) => getNavCls({ isActive: isActive && isActive(item.url, item.end) })}
+                      className={({ isActive }) => getNavCls({ isActive: isActive(item.url, item.end) })}
                     >
                       <item.icon className="h-4 w-4" />
-                      {open && <span>{item.title}</span>}
+                      {!collapsed && <span>{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -81,6 +81,3 @@ export function AdminSidebar() {
     </Sidebar>
   );
 }
-
-// Add default export
-export default AdminSidebar;

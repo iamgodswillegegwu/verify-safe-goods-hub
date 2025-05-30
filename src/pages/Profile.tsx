@@ -28,7 +28,7 @@ const Profile = () => {
   if (!user) return null;
 
   return (
-    <SidebarProvider>
+    <SidebarProvider collapsedWidth={56}>
       <div className="min-h-screen flex w-full bg-gradient-to-br from-slate-50 to-blue-50">
         <UserSidebar />
         
