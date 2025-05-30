@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Camera, Search, Shield, Users, BarChart3, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -285,8 +286,26 @@ const Index = () => {
                     {verificationResult && (
                       <div className="mt-6">
                         <EnhancedProductDisplay 
-                          result={verificationResult} 
-                          similarProducts={verificationResult.similarProducts}
+                          product={{
+                            id: verificationResult.product?.id || 'external',
+                            name: verificationResult.productName,
+                            brand: verificationResult.manufacturer,
+                            category: verificationResult.product?.category?.name,
+                            description: verificationResult.product?.description || 'Product description',
+                            verified: verificationResult.isVerified,
+                            confidence: 0.9,
+                            source: verificationResult.externalData ? 'external' : 'internal',
+                            imageUrl: verificationResult.externalData?.imageUrl,
+                            barcode: verificationResult.product?.batch_number
+                          }}
+                          similarProducts={verificationResult.similarProducts?.map(p => ({
+                            id: p.name,
+                            name: p.name,
+                            brand: p.manufacturer,
+                            verified: p.verified,
+                            confidence: 0.8,
+                            source: p.source || 'internal'
+                          })) || []}
                         />
                       </div>
                     )}
@@ -309,10 +328,8 @@ const Index = () => {
           </section>
         )}
 
-        {/* Feature Cards */}
         <FeatureCards />
 
-        {/* Statistics Section */}
         <section className="mb-16">
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold text-slate-800 mb-4">Platform Statistics</h2>
@@ -354,7 +371,6 @@ const Index = () => {
           </div>
         </section>
 
-        {/* CTA Section */}
         <section className="text-center">
           <Card className="bg-gradient-to-r from-blue-600 to-sky-600 text-white border-0">
             <CardContent className="p-12">

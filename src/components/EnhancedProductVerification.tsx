@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -42,7 +43,8 @@ const EnhancedProductVerification = () => {
         confidence: 0.8,
         source: product.source,
         product,
-        alternatives: []
+        alternatives: [],
+        sources: [product.source]
       });
       
       toast({
@@ -283,7 +285,7 @@ const EnhancedProductVerification = () => {
 
       {/* External Validation Dialog */}
       <ExternalValidationDialog
-        isOpen={showExternalDialog}
+        open={showExternalDialog}
         onClose={() => setShowExternalDialog(false)}
         productName={searchQuery}
         barcode={barcode}
