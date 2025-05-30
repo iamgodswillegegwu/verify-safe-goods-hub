@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Camera, Search, Shield, Users, BarChart3, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -86,7 +87,7 @@ const Index = () => {
           new Date(verification.product.created_at).toLocaleDateString() : 'N/A',
         certificationNumber: verification.product?.certification_number || 'N/A',
         similarProducts: similarProducts.map(p => ({
-          name: p.name,
+          name: p.name || 'Unknown Product',
           manufacturer: p.manufacturer?.company_name || p.brand || 'Unknown',
           verified: p.source === 'internal' || p.verified,
           source: p.source || 'internal',
@@ -109,7 +110,7 @@ const Index = () => {
       } else if (externalData) {
         toast({
           title: "Product Found in External Database",
-          description: `Found in ${externalData.source.toUpperCase()} database.`,
+          description: `Found in ${externalData.source?.toUpperCase() || 'external'} database.`,
         });
       } else {
         toast({
@@ -135,12 +136,15 @@ const Index = () => {
     setIsScanning(false);
     
     // If this was a real scan, we would verify it the same way
-    if (result.productName) {
+    if (result?.productName) {
+      setSearchQuery(result.productName);
       await handleSearch();
     }
   };
 
   const handleProductSelect = async (productName: string, isExternal = false, product = null) => {
+    if (!productName) return;
+    
     setSearchQuery(productName);
     setShowSuggestions(false);
     
@@ -148,7 +152,7 @@ const Index = () => {
       // If it's an external product, show it directly with enhanced details
       const result = {
         productName,
-        isVerified: product.verified,
+        isVerified: product.verified || false,
         manufacturer: product.brand || 'External Source',
         registrationDate: 'N/A',
         certificationNumber: product.id || 'External Product',
@@ -162,7 +166,7 @@ const Index = () => {
       
       toast({
         title: "External Product Selected",
-        description: `Found ${productName} from ${product.source.toUpperCase()}`,
+        description: `Found ${productName} from ${product.source?.toUpperCase() || 'external source'}`,
       });
     } else {
       // Search internal database with enhanced search
@@ -171,8 +175,10 @@ const Index = () => {
   };
 
   const handleSuggestionClick = (suggestion: string) => {
-    setSearchQuery(suggestion);
-    setShowSuggestions(false);
+    if (suggestion) {
+      setSearchQuery(suggestion);
+      setShowSuggestions(false);
+    }
   };
 
   return (
@@ -286,7 +292,7 @@ const Index = () => {
                       <div className="mt-6">
                         <EnhancedProductDisplay 
                           result={verificationResult} 
-                          similarProducts={verificationResult.similarProducts}
+                          similarProducts={verificationResult.similarProducts || []}
                         />
                       </div>
                     )}

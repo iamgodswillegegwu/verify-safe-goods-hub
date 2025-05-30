@@ -20,7 +20,11 @@ const Admin = () => {
     verifiedProducts: 7123,
     pendingApprovals: 156,
     activeManufacturers: 89,
-    dailyScans: 1542
+    dailyScans: 1542,
+    totalManufacturers: 89,
+    totalVerifications: 15847,
+    pendingProducts: 156,
+    recentActivity: []
   });
 
   console.log('Admin page rendering, activeSection:', activeSection);

@@ -8,15 +8,15 @@ import { CheckCircle, XCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import { getEnhancedValidation } from '@/services/search/enhancedValidationService';
 
 interface ExternalValidationDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  isOpen: boolean;
+  onClose: () => void;
   productName: string;
   barcode: string;
 }
 
 const ExternalValidationDialog = ({ 
-  open, 
-  onOpenChange, 
+  isOpen, 
+  onClose, 
   productName, 
   barcode 
 }: ExternalValidationDialogProps) => {
@@ -24,10 +24,10 @@ const ExternalValidationDialog = ({
   const [validationResult, setValidationResult] = useState<any>(null);
 
   useEffect(() => {
-    if (open && barcode) {
+    if (isOpen && barcode) {
       performValidation();
     }
-  }, [open, barcode]);
+  }, [isOpen, barcode]);
 
   const performValidation = async () => {
     setLoading(true);
@@ -54,7 +54,7 @@ const ExternalValidationDialog = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>External Validation</DialogTitle>
@@ -90,7 +90,7 @@ const ExternalValidationDialog = ({
 
               <div className="space-y-3">
                 <h4 className="font-medium">Validation Sources</h4>
-                {validationResult.sources.map((source: any, index: number) => (
+                {validationResult.sources?.map((source: any, index: number) => (
                   <div key={index} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       {getStatusIcon(source.verified, source.confidence)}
@@ -116,13 +116,28 @@ const ExternalValidationDialog = ({
                   </ul>
                 </div>
               )}
+
+              {validationResult.product && (
+                <div className="space-y-2">
+                  <h4 className="font-medium">Product Details</h4>
+                  <div className="text-sm space-y-1">
+                    <p><strong>Name:</strong> {validationResult.product.name}</p>
+                    {validationResult.product.brand && (
+                      <p><strong>Brand:</strong> {validationResult.product.brand}</p>
+                    )}
+                    {validationResult.product.category && (
+                      <p><strong>Category:</strong> {validationResult.product.category}</p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           ) : null}
 
           <div className="flex gap-2">
             <Button
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={onClose}
               className="flex-1"
             >
               Close
