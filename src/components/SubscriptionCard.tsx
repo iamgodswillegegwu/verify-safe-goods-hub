@@ -9,7 +9,8 @@ import { useSubscription } from '@/hooks/useSubscription';
 interface SubscriptionPlan {
   id: string;
   name: string;
-  price: number;
+  price_monthly: number;
+  price_yearly: number;
   features: string[];
   scan_limit: number | null;
   is_active: boolean;
@@ -58,8 +59,8 @@ const SubscriptionCard = ({ plan, isAnnual, isPopular, currentPlan }: Subscripti
   };
 
   const getPrice = () => {
-    if (plan.price === 0) return 0;
-    return isAnnual ? plan.price * 12 * 0.83 : plan.price; // 17% discount for annual
+    if (plan.price_monthly === 0) return 0;
+    return isAnnual ? plan.price_yearly : plan.price_monthly;
   };
 
   const Icon = getIcon();
@@ -121,7 +122,7 @@ const SubscriptionCard = ({ plan, isAnnual, isPopular, currentPlan }: Subscripti
               /{isAnnual ? 'year' : 'month'}
             </span>
           </div>
-          {isAnnual && plan.price > 0 && (
+          {isAnnual && plan.price_monthly > 0 && (
             <p className="text-sm text-slate-500 mt-1">
               Save 17% with annual billing
             </p>
@@ -137,7 +138,7 @@ const SubscriptionCard = ({ plan, isAnnual, isPopular, currentPlan }: Subscripti
           disabled={loading || isProcessing}
         >
           {currentPlan && plan.name !== 'Free' ? 'Manage Subscription' :
-           plan.price === 0 ? 'Get Started' : 'Subscribe Now'}
+           plan.price_monthly === 0 ? 'Get Started' : 'Subscribe Now'}
         </Button>
 
         <div>

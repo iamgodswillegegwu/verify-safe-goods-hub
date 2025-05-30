@@ -66,7 +66,7 @@ export function AdminSidebar() {
                     <NavLink 
                       to={item.url} 
                       end={item.end}
-                      className={({ isActive }) => getNavCls({ isActive: isActive(item.url, item.end) })}
+                      className={({ isActive }) => getNavCls({ isActive: isActive && isActive(item.url, item.end) })}
                     >
                       <item.icon className="h-4 w-4" />
                       {open && <span>{item.title}</span>}

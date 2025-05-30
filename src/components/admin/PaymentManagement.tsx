@@ -1,441 +1,360 @@
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { 
-  CreditCard, 
-  DollarSign, 
-  Users, 
-  TrendingUp, 
-  Search,
-  Filter,
-  Download
-} from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { PaymentTransaction, Subscriber, SubscriptionPlan } from '@/types/payment';
+import { CreditCard, DollarSign, Users, TrendingUp } from 'lucide-react';
 
 const PaymentManagement = () => {
-  const { toast } = useToast();
-  const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<PaymentTransaction[]>([]);
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
-  const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadPaymentData();
+    fetchPaymentData();
   }, []);
 
-  const loadPaymentData = async () => {
+  const fetchPaymentData = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      
-      // Load subscription plans
+      // Fetch subscription plans
       const { data: plansData, error: plansError } = await supabase
         .from('subscription_plans')
         .select('*')
         .order('price_monthly', { ascending: true });
 
       if (plansError) throw plansError;
-      setSubscriptionPlans(plansData || []);
-
-      // Note: These tables don't exist yet in the database types, so we'll handle gracefully
-      try {
-        // Try to load payment transactions if table exists
-        const { data: transactionsData } = await supabase
-          .from('payment_transactions' as any)
-          .select(`
-            *,
-            profiles:user_id (
-              first_name,
-              last_name,
-              email
-            )
-          `)
-          .order('created_at', { ascending: false })
-          .limit(100);
-
-        setTransactions(transactionsData || []);
-      } catch (error) {
-        console.log('Payment transactions table not available yet');
-        setTransactions([]);
+      
+      if (plansData) {
+        setPlans(plansData.map(plan => ({
+          id: plan.id,
+          name: plan.name,
+          price_monthly: plan.price_monthly || 0,
+          price_yearly: plan.price_yearly || 0,
+          stripe_price_id_monthly: plan.stripe_price_id_monthly,
+          stripe_price_id_yearly: plan.stripe_price_id_yearly,
+          features: Array.isArray(plan.features) ? plan.features : [],
+          scan_limit: plan.scan_limit,
+          is_active: plan.is_active || false,
+          created_at: plan.created_at || new Date().toISOString(),
+          updated_at: plan.updated_at || new Date().toISOString()
+        })));
       }
 
-      try {
-        // Try to load subscribers if table exists
-        const { data: subscribersData } = await supabase
-          .from('subscribers' as any)
-          .select(`
-            *,
-            subscription_plans (*),
-            profiles:user_id (
-              first_name,
-              last_name,
-              email
-            )
-          `)
-          .order('created_at', { ascending: false });
+      // Fetch payment transactions with user profiles
+      const { data: transactionsData, error: transactionsError } = await supabase
+        .from('payment_transactions')
+        .select(`
+          *,
+          profiles:user_id (
+            first_name,
+            last_name,
+            email
+          )
+        `)
+        .order('created_at', { ascending: false })
+        .limit(50);
 
-        setSubscribers(subscribersData || []);
-      } catch (error) {
-        console.log('Subscribers table not available yet');
-        setSubscribers([]);
+      if (transactionsError) throw transactionsError;
+      if (transactionsData) {
+        setTransactions(transactionsData as PaymentTransaction[]);
+      }
+
+      // Fetch subscribers with subscription plan details and user profiles
+      const { data: subscribersData, error: subscribersError } = await supabase
+        .from('subscribers')
+        .select(`
+          *,
+          subscription_plans:subscription_plan_id (
+            name,
+            price_monthly,
+            price_yearly
+          ),
+          profiles:user_id (
+            first_name,
+            last_name,
+            email
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (subscribersError) throw subscribersError;
+      if (subscribersData) {
+        setSubscribers(subscribersData as Subscriber[]);
       }
 
     } catch (error) {
-      console.error('Error loading payment data:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load payment data",
-        variant: "destructive"
-      });
+      console.error('Error fetching payment data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const getPaymentStats = () => {
-    const totalRevenue = transactions.reduce((sum, t) => sum + (t.amount || 0), 0);
-    const successfulTransactions = transactions.filter(t => t.status === 'succeeded').length;
-    const activeSubscribers = subscribers.filter(s => s.status === 'active').length;
-    
-    return {
-      totalRevenue,
-      totalTransactions: transactions.length,
-      successfulTransactions,
-      activeSubscribers,
-      totalSubscribers: subscribers.length
-    };
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount);
   };
 
-  const stats = getPaymentStats();
-
-  const filteredTransactions = transactions.filter(transaction => {
-    const matchesSearch = searchTerm === '' || 
-      transaction.profiles?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesFilter = filterStatus === 'all' || transaction.status === filterStatus;
-    
-    return matchesSearch && matchesFilter;
-  });
-
-  const filteredSubscribers = subscribers.filter(subscriber => {
-    const matchesSearch = searchTerm === '' || 
-      subscriber.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      subscriber.profiles?.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      subscriber.profiles?.last_name?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesFilter = filterStatus === 'all' || subscriber.status === filterStatus;
-    
-    return matchesSearch && matchesFilter;
-  });
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'active':
+      case 'succeeded':
+      case 'paid':
+        return 'default';
+      case 'pending':
+        return 'secondary';
+      case 'canceled':
+      case 'failed':
+        return 'destructive';
+      default:
+        return 'outline';
+    }
+  };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="p-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-32 bg-gray-200 rounded"></div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
 
+  // Calculate stats
+  const totalRevenue = transactions.reduce((sum, transaction) => sum + transaction.amount, 0);
+  const activeSubscribers = subscribers.filter(sub => sub.status === 'active').length;
+  const totalTransactions = transactions.length;
+  const averageTransactionValue = totalTransactions > 0 ? totalRevenue / totalTransactions : 0;
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-slate-800">Payment Management</h1>
-        <Button variant="outline" className="flex items-center gap-2">
-          <Download className="h-4 w-4" />
-          Export Data
-        </Button>
+    <div className="p-6 space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">Payment Management</h1>
+        <p className="text-gray-600 mt-2">Monitor payments, subscriptions, and revenue</p>
       </div>
 
-      {/* Payment Statistics */}
-      <div className="grid md:grid-cols-5 gap-4">
-        <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-          <CardContent className="p-6 text-center">
-            <DollarSign className="h-8 w-8 text-green-600 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-green-800">
-              ${stats.totalRevenue.toFixed(2)}
-            </div>
-            <div className="text-sm text-green-600">Total Revenue</div>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
+            <p className="text-xs text-muted-foreground">
+              From {totalTransactions} transactions
+            </p>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-          <CardContent className="p-6 text-center">
-            <CreditCard className="h-8 w-8 text-blue-600 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-blue-800">{stats.totalTransactions}</div>
-            <div className="text-sm text-blue-600">Total Transactions</div>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Subscribers</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{activeSubscribers}</div>
+            <p className="text-xs text-muted-foreground">
+              Out of {subscribers.length} total
+            </p>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
-          <CardContent className="p-6 text-center">
-            <TrendingUp className="h-8 w-8 text-purple-600 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-purple-800">{stats.successfulTransactions}</div>
-            <div className="text-sm text-purple-600">Successful Payments</div>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Avg. Transaction</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(averageTransactionValue)}</div>
+            <p className="text-xs text-muted-foreground">
+              Per transaction
+            </p>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
-          <CardContent className="p-6 text-center">
-            <Users className="h-8 w-8 text-orange-600 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-orange-800">{stats.activeSubscribers}</div>
-            <div className="text-sm text-orange-600">Active Subscribers</div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200">
-          <CardContent className="p-6 text-center">
-            <Users className="h-8 w-8 text-slate-600 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-slate-800">{stats.totalSubscribers}</div>
-            <div className="text-sm text-slate-600">Total Subscribers</div>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Plans</CardTitle>
+            <CreditCard className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{plans.filter(p => p.is_active).length}</div>
+            <p className="text-xs text-muted-foreground">
+              Subscription plans
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Search and Filter Controls */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex-1">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
-            <Input
-              placeholder="Search by email, name, or description..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="all">All Status</option>
-            <option value="active">Active</option>
-            <option value="succeeded">Succeeded</option>
-            <option value="failed">Failed</option>
-            <option value="pending">Pending</option>
-            <option value="canceled">Canceled</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Payment Management Tabs */}
-      <Tabs defaultValue="transactions" className="space-y-4">
+      {/* Tabs */}
+      <Tabs defaultValue="transactions" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="transactions">Payment Transactions</TabsTrigger>
+          <TabsTrigger value="transactions">Transactions</TabsTrigger>
           <TabsTrigger value="subscribers">Subscribers</TabsTrigger>
-          <TabsTrigger value="plans">Subscription Plans</TabsTrigger>
+          <TabsTrigger value="plans">Plans</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="transactions">
+        <TabsContent value="transactions" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Payment Transactions</CardTitle>
+              <CardTitle>Recent Transactions</CardTitle>
+              <CardDescription>
+                Latest payment transactions from your customers
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              {filteredTransactions.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left p-2">Customer</th>
-                        <th className="text-left p-2">Amount</th>
-                        <th className="text-left p-2">Status</th>
-                        <th className="text-left p-2">Description</th>
-                        <th className="text-left p-2">Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredTransactions.map((transaction) => (
-                        <tr key={transaction.id} className="border-b">
-                          <td className="p-2">
-                            <div>
-                              <div className="font-medium">
-                                {transaction.profiles?.first_name} {transaction.profiles?.last_name}
-                              </div>
-                              <div className="text-sm text-slate-600">
-                                {transaction.profiles?.email}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-2">
-                            <span className="font-medium">
-                              ${transaction.amount?.toFixed(2)} {transaction.currency?.toUpperCase()}
-                            </span>
-                          </td>
-                          <td className="p-2">
-                            <Badge 
-                              variant={transaction.status === 'succeeded' ? 'default' : 'destructive'}
-                              className={transaction.status === 'succeeded' ? 'bg-green-600' : ''}
-                            >
-                              {transaction.status}
-                            </Badge>
-                          </td>
-                          <td className="p-2">
-                            <span className="text-sm">{transaction.description || 'N/A'}</span>
-                          </td>
-                          <td className="p-2">
-                            <span className="text-sm">
-                              {new Date(transaction.created_at).toLocaleDateString()}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <CreditCard className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-                  <p className="text-slate-600">No payment transactions found</p>
-                </div>
-              )}
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Date</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {transactions.map((transaction) => (
+                    <TableRow key={transaction.id}>
+                      <TableCell>
+                        {transaction.profiles ? 
+                          `${transaction.profiles.first_name || ''} ${transaction.profiles.last_name || ''}`.trim() || 
+                          transaction.profiles.email || 'Unknown User'
+                          : 'Unknown User'
+                        }
+                      </TableCell>
+                      <TableCell>{formatCurrency(transaction.amount)}</TableCell>
+                      <TableCell>
+                        <Badge variant={getStatusBadgeVariant(transaction.status)}>
+                          {transaction.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{transaction.description || 'N/A'}</TableCell>
+                      <TableCell>
+                        {new Date(transaction.created_at).toLocaleDateString()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="subscribers">
+        <TabsContent value="subscribers" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Subscribers</CardTitle>
+              <CardDescription>
+                Manage your subscription customers
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              {filteredSubscribers.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left p-2">Customer</th>
-                        <th className="text-left p-2">Plan</th>
-                        <th className="text-left p-2">Status</th>
-                        <th className="text-left p-2">Period</th>
-                        <th className="text-left p-2">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredSubscribers.map((subscriber) => (
-                        <tr key={subscriber.id} className="border-b">
-                          <td className="p-2">
-                            <div>
-                              <div className="font-medium">
-                                {subscriber.profiles?.first_name} {subscriber.profiles?.last_name}
-                              </div>
-                              <div className="text-sm text-slate-600">
-                                {subscriber.email}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-2">
-                            <div>
-                              <div className="font-medium">
-                                {subscriber.subscription_plans?.name || 'N/A'}
-                              </div>
-                              <div className="text-sm text-slate-600">
-                                ${subscriber.subscription_plans?.price_monthly}/month
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-2">
-                            <Badge 
-                              variant={subscriber.status === 'active' ? 'default' : 'destructive'}
-                              className={subscriber.status === 'active' ? 'bg-green-600' : ''}
-                            >
-                              {subscriber.status}
-                            </Badge>
-                          </td>
-                          <td className="p-2">
-                            <div className="text-sm">
-                              {subscriber.current_period_start && (
-                                <div>
-                                  Start: {new Date(subscriber.current_period_start).toLocaleDateString()}
-                                </div>
-                              )}
-                              {subscriber.current_period_end && (
-                                <div>
-                                  End: {new Date(subscriber.current_period_end).toLocaleDateString()}
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="p-2">
-                            <Button variant="outline" size="sm">
-                              View Details
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <Users className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-                  <p className="text-slate-600">No subscribers found</p>
-                </div>
-              )}
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Plan</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Current Period</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {subscribers.map((subscriber) => (
+                    <TableRow key={subscriber.id}>
+                      <TableCell>
+                        {subscriber.profiles ? 
+                          `${subscriber.profiles.first_name || ''} ${subscriber.profiles.last_name || ''}`.trim() || 
+                          subscriber.profiles.email || subscriber.email
+                          : subscriber.email
+                        }
+                      </TableCell>
+                      <TableCell>
+                        {subscriber.subscription_plans?.name || 'N/A'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={getStatusBadgeVariant(subscriber.status)}>
+                          {subscriber.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {subscriber.current_period_end 
+                          ? new Date(subscriber.current_period_end).toLocaleDateString()
+                          : 'N/A'
+                        }
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="outline" size="sm">
+                          View Details
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="plans">
+        <TabsContent value="plans" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Subscription Plans</CardTitle>
+              <CardDescription>
+                Manage your subscription plans and pricing
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid md:grid-cols-3 gap-4">
-                {subscriptionPlans.map((plan) => (
-                  <Card key={plan.id} className="relative">
-                    <CardHeader>
-                      <CardTitle className="flex items-center justify-between">
-                        {plan.name}
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Plan Name</TableHead>
+                    <TableHead>Monthly Price</TableHead>
+                    <TableHead>Yearly Price</TableHead>
+                    <TableHead>Scan Limit</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {plans.map((plan) => (
+                    <TableRow key={plan.id}>
+                      <TableCell className="font-medium">{plan.name}</TableCell>
+                      <TableCell>{formatCurrency(plan.price_monthly)}</TableCell>
+                      <TableCell>{formatCurrency(plan.price_yearly)}</TableCell>
+                      <TableCell>
+                        {plan.scan_limit ? plan.scan_limit.toString() : 'Unlimited'}
+                      </TableCell>
+                      <TableCell>
                         <Badge variant={plan.is_active ? 'default' : 'secondary'}>
                           {plan.is_active ? 'Active' : 'Inactive'}
                         </Badge>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        <div>
-                          <div className="text-2xl font-bold">${plan.price_monthly}/month</div>
-                          <div className="text-sm text-slate-600">${plan.price_yearly}/year</div>
-                        </div>
-                        
-                        {plan.scan_limit && (
-                          <div className="text-sm">
-                            <strong>Scan Limit:</strong> {plan.scan_limit} per day
-                          </div>
-                        )}
-                        
-                        <div className="space-y-1">
-                          <div className="font-medium text-sm">Features:</div>
-                          <ul className="text-sm text-slate-600 space-y-1">
-                            {plan.features.map((feature, index) => (
-                              <li key={index} className="flex items-start gap-2">
-                                <span className="text-green-600">✓</span>
-                                {feature}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                        
-                        <Button variant="outline" size="sm" className="w-full">
-                          Edit Plan
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="outline" size="sm">
+                          Edit
                         </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </TabsContent>
