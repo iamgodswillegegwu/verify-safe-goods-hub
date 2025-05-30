@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Camera, Search, Shield, Users, BarChart3, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -291,7 +290,7 @@ const Index = () => {
                     {verificationResult && (
                       <div className="mt-6">
                         <EnhancedProductDisplay 
-                          result={verificationResult} 
+                          verificationResult={verificationResult} 
                           similarProducts={verificationResult.similarProducts || []}
                         />
                       </div>

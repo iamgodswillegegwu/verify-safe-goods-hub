@@ -42,7 +42,13 @@ const EnhancedProductVerification = () => {
         confidence: 0.8,
         source: product.source,
         product,
-        alternatives: []
+        alternatives: [],
+        sources: [{
+          name: product.source,
+          status: 'success',
+          verified: product.verified,
+          confidence: 0.8
+        }]
       });
       
       toast({

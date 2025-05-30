@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Search, Clock, ExternalLink, Package } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -45,7 +44,7 @@ const AutoSuggestSearch = ({
         // Search both internal database and external APIs in parallel
         const [internalSuggestions, externalResults] = await Promise.all([
           getSearchSuggestions(debouncedQuery),
-          searchProductsQuick(debouncedQuery, 3)
+          searchProductsQuick(debouncedQuery)
         ]);
 
         setSuggestions(internalSuggestions);

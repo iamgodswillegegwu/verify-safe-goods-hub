@@ -35,12 +35,12 @@ export const getEnhancedValidation = async (
       recommendations.push('Consider additional verification from manufacturer');
       recommendations.push('Check product expiry date and batch number');
     }
-    if (!externalResult.isValid) {
+    if (!externalResult.verified) {
       recommendations.push('Product may be counterfeit - exercise caution');
     }
 
     return {
-      isValid: externalResult.isValid,
+      isValid: externalResult.verified,
       confidence: externalResult.confidence,
       sources: externalResult.sources,
       product: externalResult.product,
