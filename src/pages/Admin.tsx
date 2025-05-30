@@ -1,35 +1,25 @@
 
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import Navigation from '@/components/Navigation';
-import AdminSidebar from '@/components/AdminSidebar';
-import AuthenticationSettings from '@/components/admin/AuthenticationSettings';
-import APIIntegrations from '@/components/admin/APIIntegrations';
+import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { AdminSidebar } from '@/components/AdminSidebar';
 import Overview from '@/components/admin/Overview';
 import UserManagement from '@/components/admin/UserManagement';
 import ProductManagement from '@/components/admin/ProductManagement';
+import PaymentManagement from '@/components/admin/PaymentManagement';
+import { Shield } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 
 const Admin = () => {
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   const navigate = useNavigate();
-  const [activeSection, setActiveSection] = useState('overview');
-  const [stats] = useState({
-    totalUsers: 5642,
-    totalProducts: 8934,
-    verifiedProducts: 7123,
-    pendingApprovals: 156,
-    activeManufacturers: 89,
-    dailyScans: 1542
-  });
-
-  console.log('Admin page rendering, activeSection:', activeSection);
 
   useEffect(() => {
-    if (!loading && !user) {
-      navigate('/login');
+    if (!loading && (!user || !profile || profile.role !== 'admin')) {
+      navigate('/');
     }
-  }, [user, loading, navigate]);
+  }, [user, profile, loading, navigate]);
 
   if (loading) {
     return (
@@ -39,43 +29,35 @@ const Admin = () => {
     );
   }
 
-  if (!user) {
+  if (!user || !profile || profile.role !== 'admin') {
     return null;
   }
 
-  const renderContent = () => {
-    console.log('Rendering content for section:', activeSection);
-    switch (activeSection) {
-      case 'auth-settings':
-        return <AuthenticationSettings />;
-      case 'api-integrations':
-        return <APIIntegrations />;
-      case 'users':
-        return <UserManagement />;
-      case 'products':
-        return <ProductManagement />;
-      default:
-        return <Overview stats={stats} onSectionChange={setActiveSection} />;
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navigation />
-      
-      <div className="flex h-[calc(100vh-64px)] w-full">
-        <AdminSidebar 
-          activeSection={activeSection} 
-          onSectionChange={setActiveSection} 
-        />
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full bg-gradient-to-br from-slate-50 to-blue-50">
+        <AdminSidebar />
         
-        <main className="flex-1 overflow-y-auto p-6 bg-gray-50">
-          <div className="max-w-7xl mx-auto">
-            {renderContent()}
-          </div>
-        </main>
+        <div className="flex-1 flex flex-col">
+          <header className="h-12 flex items-center border-b bg-white/80 backdrop-blur-sm">
+            <SidebarTrigger className="ml-2" />
+            <div className="flex items-center gap-2 ml-4">
+              <Shield className="h-6 w-6 text-blue-600" />
+              <span className="font-bold text-slate-800">SafeGoods - Admin Dashboard</span>
+            </div>
+          </header>
+          
+          <main className="flex-1 overflow-auto">
+            <Routes>
+              <Route path="/" element={<Overview />} />
+              <Route path="/users" element={<UserManagement />} />
+              <Route path="/products" element={<ProductManagement />} />
+              <Route path="/payments" element={<PaymentManagement />} />
+            </Routes>
+          </main>
+        </div>
       </div>
-    </div>
+    </SidebarProvider>
   );
 };
 
