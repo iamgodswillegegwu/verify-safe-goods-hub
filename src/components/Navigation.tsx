@@ -43,8 +43,14 @@ const Navigation = () => {
             <Link to="/products" className="text-slate-600 hover:text-blue-600 transition-colors">
               Products
             </Link>
+            <Link to="/services" className="text-slate-600 hover:text-blue-600 transition-colors">
+              Services
+            </Link>
             <Link to="/about" className="text-slate-600 hover:text-blue-600 transition-colors">
               About
+            </Link>
+            <Link to="/contact" className="text-slate-600 hover:text-blue-600 transition-colors">
+              Contact
             </Link>
           </div>
 
@@ -67,6 +73,10 @@ const Navigation = () => {
                     <Settings className="h-4 w-4 mr-2" />
                     Dashboard
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/favorites')}>
+                    <Settings className="h-4 w-4 mr-2" />
+                    Favorites
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleSignOut}>
                     <LogOut className="h-4 w-4 mr-2" />
                     Sign Out
@@ -75,7 +85,7 @@ const Navigation = () => {
               </DropdownMenu>
             ) : (
               <div className="flex items-center space-x-3">
-                <Link to="/signin">
+                <Link to="/login">
                   <Button variant="ghost">Sign In</Button>
                 </Link>
                 <Link to="/signup">
@@ -123,11 +133,25 @@ const Navigation = () => {
                 Products
               </Link>
               <Link 
+                to="/services" 
+                className="text-slate-600 hover:text-blue-600 transition-colors px-2 py-1"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Services
+              </Link>
+              <Link 
                 to="/about" 
                 className="text-slate-600 hover:text-blue-600 transition-colors px-2 py-1"
                 onClick={() => setIsMenuOpen(false)}
               >
                 About
+              </Link>
+              <Link 
+                to="/contact" 
+                className="text-slate-600 hover:text-blue-600 transition-colors px-2 py-1"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Contact
               </Link>
               
               {user ? (
@@ -148,6 +172,12 @@ const Navigation = () => {
                           Dashboard
                         </Button>
                       </Link>
+                      <Link to="/favorites" onClick={() => setIsMenuOpen(false)}>
+                        <Button variant="ghost" size="sm" className="w-full justify-start">
+                          <Settings className="h-4 w-4 mr-2" />
+                          Favorites
+                        </Button>
+                      </Link>
                       <Button 
                         variant="ghost" 
                         size="sm" 
@@ -165,7 +195,7 @@ const Navigation = () => {
                 </div>
               ) : (
                 <div className="flex flex-col space-y-2 px-2 pt-4 border-t">
-                  <Link to="/signin" onClick={() => setIsMenuOpen(false)}>
+                  <Link to="/login" onClick={() => setIsMenuOpen(false)}>
                     <Button variant="ghost" className="w-full">Sign In</Button>
                   </Link>
                   <Link to="/signup" onClick={() => setIsMenuOpen(false)}>

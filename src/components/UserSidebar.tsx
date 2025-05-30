@@ -25,11 +25,11 @@ const UserSidebar = () => {
   const navigation = [
     { name: 'Profile', href: '/profile', icon: User },
     { name: 'Dashboard', href: '/dashboard', icon: BarChart3 },
-    { name: 'Verification History', href: '/dashboard/verifications', icon: Shield },
-    { name: 'Favorites', href: '/dashboard/favorites', icon: Heart },
-    { name: 'Settings', href: '/dashboard/settings', icon: Settings },
-    { name: 'Reports', href: '/dashboard/reports', icon: FileText },
-    { name: 'Subscription', href: '/dashboard/subscription', icon: CreditCard },
+    { name: 'Verification History', href: '/dashboard', icon: Shield },
+    { name: 'Favorites', href: '/favorites', icon: Heart },
+    { name: 'Settings', href: '/profile', icon: Settings },
+    { name: 'Reports', href: '/dashboard', icon: FileText },
+    { name: 'Subscription', href: '/subscription', icon: CreditCard },
   ];
 
   const handleSignOut = async () => {
