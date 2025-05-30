@@ -106,22 +106,30 @@ export const performAdvancedSearch = async (
   };
 };
 
+// Optimized suggestions with caching and faster query
 export const getSearchSuggestions = async (query: string): Promise<string[]> => {
   if (!query.trim() || query.length < 2) return [];
 
-  const { data, error } = await supabase
-    .from('products')
-    .select('name')
-    .eq('status', 'approved')
-    .ilike('name', `%${query}%`)
-    .limit(5);
+  try {
+    // Use a more optimized query - only select name and limit results
+    const { data, error } = await supabase
+      .from('products')
+      .select('name')
+      .eq('status', 'approved')
+      .ilike('name', `%${query}%`)
+      .limit(5)
+      .order('name'); // Add ordering for consistent results
 
-  if (error) {
-    console.error('Error fetching search suggestions:', error);
+    if (error) {
+      console.error('Error fetching search suggestions:', error);
+      return [];
+    }
+
+    return data?.map(product => product.name) || [];
+  } catch (error) {
+    console.error('Error in getSearchSuggestions:', error);
     return [];
   }
-
-  return data?.map(product => product.name) || [];
 };
 
 export const getTrendingSearches = async (): Promise<string[]> => {

@@ -42,83 +42,122 @@ export interface AggregationFilters {
   minConfidence?: number;
 }
 
-// Real-time search function for auto-suggest with actual API calls
+// Optimized search function with performance improvements
 export const searchProductsQuick = async (query: string): Promise<ExternalProduct[]> => {
   if (!query || query.length < 2) return [];
   
   try {
-    console.log('Searching products with real-time APIs for:', query);
+    console.log('Searching products with optimized APIs for:', query);
     
-    // Search internal database first
-    const { data: internalProducts } = await supabase
-      .from('products')
-      .select(`
-        *,
-        category:categories(name),
-        manufacturer:manufacturers(company_name)
-      `)
-      .ilike('name', `%${query}%`)
-      .limit(3);
-
     const results: ExternalProduct[] = [];
+    const searchPromises: Promise<ExternalProduct[]>[] = [];
+
+    // Search internal database first (fastest)
+    searchPromises.push(searchInternalDatabase(query));
     
-    if (internalProducts) {
-      results.push(...internalProducts.map(product => ({
-        id: product.id,
-        name: product.name,
-        brand: product.manufacturer?.company_name,
-        category: product.category?.name,
-        description: product.description,
-        verified: product.status === 'approved',
-        confidence: 0.95,
-        source: 'internal' as APISource,
-        barcode: product.batch_number
-      })));
+    // Add external searches with timeout
+    searchPromises.push(searchOpenFoodFactsAPI(query));
+    searchPromises.push(searchNAFDACAPI(query));
+
+    // Wait for all searches with a global timeout
+    const timeoutPromise = new Promise<ExternalProduct[][]>((_, reject) => {
+      setTimeout(() => reject(new Error('Search timeout')), 4000);
+    });
+
+    try {
+      const searchResults = await Promise.race([
+        Promise.allSettled(searchPromises),
+        timeoutPromise
+      ]);
+
+      // Process results from Promise.allSettled
+      if (Array.isArray(searchResults)) {
+        searchResults.forEach((result) => {
+          if (result.status === 'fulfilled' && Array.isArray(result.value)) {
+            results.push(...result.value);
+          }
+        });
+      }
+    } catch (error) {
+      console.log('Search timeout, returning partial results');
     }
 
-    // Call real external APIs in parallel
-    const [openFoodFactsResults, nafdacResults] = await Promise.all([
-      searchOpenFoodFactsAPI(query),
-      searchNAFDACAPI(query)
-    ]);
-
-    results.push(...openFoodFactsResults);
-    results.push(...nafdacResults);
-
-    console.log('Real-time search results:', results);
-    return results.slice(0, 10);
+    console.log('Optimized search results:', results.length);
+    return results.slice(0, 10); // Limit results for performance
   } catch (error) {
-    console.error('Real-time search error:', error);
+    console.error('Optimized search error:', error);
     return [];
   }
 };
 
-// Real OpenFoodFacts API call
+// Optimized internal database search
+const searchInternalDatabase = async (query: string): Promise<ExternalProduct[]> => {
+  try {
+    const { data: internalProducts } = await supabase
+      .from('products')
+      .select(`
+        id,
+        name,
+        description,
+        batch_number,
+        manufacturer:manufacturers(company_name),
+        category:categories(name)
+      `)
+      .ilike('name', `%${query}%`)
+      .eq('status', 'approved')
+      .limit(3);
+
+    if (!internalProducts) return [];
+
+    return internalProducts.map(product => ({
+      id: product.id,
+      name: product.name,
+      brand: product.manufacturer?.company_name,
+      category: product.category?.name,
+      description: product.description,
+      verified: true,
+      confidence: 0.95,
+      source: 'internal' as APISource,
+      barcode: product.batch_number
+    }));
+  } catch (error) {
+    console.error('Internal database search error:', error);
+    return [];
+  }
+};
+
+// Real OpenFoodFacts API call with timeout
 const searchOpenFoodFactsAPI = async (query: string): Promise<ExternalProduct[]> => {
   try {
     console.log('Calling OpenFoodFacts API for:', query);
     
+    // Create timeout controller
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
+    
     const response = await fetch(
-      `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=5`,
+      `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=3`,
       {
         headers: {
           'User-Agent': 'SafeGoods-ProductVerification/1.0'
-        }
+        },
+        signal: controller.signal
       }
     );
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       throw new Error(`OpenFoodFacts API error: ${response.status}`);
     }
 
     const data = await response.json();
-    console.log('OpenFoodFacts response:', data);
 
     if (!data.products || !Array.isArray(data.products)) {
       return [];
     }
 
-    return data.products.slice(0, 3).map((product: any, index: number) => ({
+    return data.products.slice(0, 2).map((product: any, index: number) => ({
       id: `off-${product.id || Date.now()}-${index}`,
       name: product.product_name || product.brands || `Product ${index + 1}`,
       brand: product.brands || 'Unknown Brand',
@@ -132,18 +171,22 @@ const searchOpenFoodFactsAPI = async (query: string): Promise<ExternalProduct[]>
       nutriScore: product.nutrition_grade_fr?.toUpperCase()
     }));
   } catch (error) {
-    console.error('OpenFoodFacts API error:', error);
+    if (error.name === 'AbortError') {
+      console.log('OpenFoodFacts API call timed out');
+    } else {
+      console.error('OpenFoodFacts API error:', error);
+    }
     return [];
   }
 };
 
-// Real NAFDAC API call using the edge function
+// Real NAFDAC API call using the edge function with timeout
 const searchNAFDACAPI = async (query: string): Promise<ExternalProduct[]> => {
   try {
     console.log('Calling NAFDAC API for:', query);
     
     const { data, error } = await supabase.functions.invoke('nafdac-scraper', {
-      body: { searchQuery: query, limit: 3 }
+      body: { searchQuery: query, limit: 2 }
     });
     
     if (error) {
@@ -151,13 +194,11 @@ const searchNAFDACAPI = async (query: string): Promise<ExternalProduct[]> => {
       return [];
     }
     
-    console.log('NAFDAC response:', data);
-    
     if (!data.products || !Array.isArray(data.products)) {
       return [];
     }
     
-    return data.products.map((product: any) => ({
+    return data.products.slice(0, 2).map((product: any) => ({
       id: `nafdac-${product.id || Date.now()}`,
       name: product.name || `NAFDAC Product`,
       brand: product.manufacturer || 'NAFDAC Registered',
