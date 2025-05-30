@@ -206,3 +206,101 @@ export const reportProduct = async (
     return false;
   }
 };
+
+// Add product to user favorites
+export const addToFavorites = async (userId: string, productId: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('user_favorites')
+      .insert({
+        user_id: userId,
+        product_id: productId
+      });
+
+    if (error) {
+      console.error('Error adding to favorites:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Failed to add to favorites:', error);
+    return false;
+  }
+};
+
+// Remove product from user favorites
+export const removeFromFavorites = async (userId: string, productId: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('user_favorites')
+      .delete()
+      .eq('user_id', userId)
+      .eq('product_id', productId);
+
+    if (error) {
+      console.error('Error removing from favorites:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Failed to remove from favorites:', error);
+    return false;
+  }
+};
+
+// Check if product is favorited by user
+export const isProductFavorited = async (userId: string, productId: string): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase
+      .from('user_favorites')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('product_id', productId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error checking favorite status:', error);
+      return false;
+    }
+
+    return !!data;
+  } catch (error) {
+    console.error('Failed to check favorite status:', error);
+    return false;
+  }
+};
+
+// Get user's favorite products
+export const getUserFavorites = async (userId: string): Promise<any[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('user_favorites')
+      .select(`
+        id,
+        created_at,
+        product:products(
+          *,
+          manufacturer:manufacturers(*),
+          category:categories(*)
+        )
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error getting user favorites:', error);
+      return [];
+    }
+
+    // Extract products from the favorites data
+    return data?.map(fav => ({
+      ...fav.product,
+      favorited_at: fav.created_at
+    })) || [];
+  } catch (error) {
+    console.error('Failed to get user favorites:', error);
+    return [];
+  }
+};
