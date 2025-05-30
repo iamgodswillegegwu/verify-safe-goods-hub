@@ -1,105 +1,109 @@
 
 import { useState } from 'react';
-import { User, Settings, LogOut, Camera } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Camera, User } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
-import { useToast } from '@/hooks/use-toast';
+import { Profile } from '@/types/profile';
 
-const UserAvatar = () => {
-  const { user, profile, signOut } = useAuth();
-  const navigate = useNavigate();
-  const { toast } = useToast();
+interface UserAvatarProps {
+  profile: Profile | null;
+  onImageUpdate?: (imageUrl: string) => void;
+  size?: 'sm' | 'md' | 'lg';
+  showUploadButton?: boolean;
+}
 
-  const handleSignOut = async () => {
-    try {
-      const { error } = await signOut();
-      if (error) {
-        toast({
-          title: "Sign Out Failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Signed Out",
-          description: "You have been signed out successfully.",
-        });
-        navigate('/');
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred while signing out.",
-        variant: "destructive",
-      });
+const UserAvatar = ({ 
+  profile, 
+  onImageUpdate, 
+  size = 'md', 
+  showUploadButton = false 
+}: UserAvatarProps) => {
+  const { user } = useAuth();
+  const [isUploading, setIsUploading] = useState(false);
+
+  const getSizeClasses = () => {
+    switch (size) {
+      case 'sm': return 'h-8 w-8';
+      case 'lg': return 'h-24 w-24';
+      default: return 'h-12 w-12';
     }
   };
 
   const getInitials = () => {
-    if (profile?.first_name && profile?.last_name) {
-      return `${profile.first_name.charAt(0)}${profile.last_name.charAt(0)}`.toUpperCase();
-    }
-    return user?.email?.charAt(0).toUpperCase() || 'U';
+    const firstName = profile?.first_name || '';
+    const lastName = profile?.last_name || '';
+    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || 'U';
   };
 
-  const getDisplayName = () => {
-    if (profile?.first_name && profile?.last_name) {
-      return `${profile.first_name} ${profile.last_name}`;
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    setIsUploading(true);
+    try {
+      // Simulate upload - in real implementation, upload to Supabase Storage
+      const imageUrl = URL.createObjectURL(file);
+      onImageUpdate?.(imageUrl);
+    } catch (error) {
+      console.error('Error uploading image:', error);
+    } finally {
+      setIsUploading(false);
     }
-    return user?.email || 'User';
   };
 
-  if (!user) return null;
+  if (showUploadButton && size === 'lg') {
+    return (
+      <Card className="w-fit">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-sm">Profile Picture</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col items-center space-y-4">
+            <Avatar className={getSizeClasses()}>
+              <AvatarImage 
+                src={profile?.profile_picture_url || ''} 
+                alt={`${profile?.first_name || 'User'}'s avatar`} 
+              />
+              <AvatarFallback>
+                <User className="h-8 w-8" />
+              </AvatarFallback>
+            </Avatar>
+            
+            <div className="flex flex-col items-center space-y-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isUploading}
+                onClick={() => document.getElementById('avatar-upload')?.click()}
+                className="text-xs"
+              >
+                <Camera className="h-3 w-3 mr-1" />
+                {isUploading ? 'Uploading...' : 'Change Photo'}
+              </Button>
+              <input
+                id="avatar-upload"
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-          <Avatar className="h-10 w-10">
-            <AvatarImage 
-              src={profile?.profile_picture_url || ''} 
-              alt={getDisplayName()}
-            />
-            <AvatarFallback className="bg-blue-600 text-white">
-              {getInitials()}
-            </AvatarFallback>
-          </Avatar>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56" align="end" forceMount>
-        <div className="flex items-center justify-start gap-2 p-2">
-          <div className="flex flex-col space-y-1 leading-none">
-            <p className="font-medium text-sm">{getDisplayName()}</p>
-            <p className="w-[200px] truncate text-xs text-muted-foreground">
-              {user.email}
-            </p>
-          </div>
-        </div>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => navigate('/profile')}>
-          <User className="mr-2 h-4 w-4" />
-          Profile
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => navigate('/dashboard')}>
-          <Settings className="mr-2 h-4 w-4" />
-          Dashboard
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleSignOut}>
-          <LogOut className="mr-2 h-4 w-4" />
-          Sign out
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Avatar className={getSizeClasses()}>
+      <AvatarImage 
+        src={profile?.profile_picture_url || ''} 
+        alt={`${profile?.first_name || 'User'}'s avatar`} 
+      />
+      <AvatarFallback>{getInitials()}</AvatarFallback>
+    </Avatar>
   );
 };
 

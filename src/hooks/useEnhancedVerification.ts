@@ -14,13 +14,14 @@ export const useEnhancedVerification = () => {
   const { toast } = useToast();
 
   const handleProductSelect = (productName: string, isExternal = false, product: ExternalProduct | null = null) => {
+    console.log('Product selected:', { productName, isExternal, product });
     setSearchQuery(productName);
     
     if (isExternal && product) {
       setExternalResult({
         found: true,
         verified: product.verified,
-        confidence: 0.8,
+        confidence: product.confidence,
         source: product.source,
         product,
         alternatives: [],
@@ -28,7 +29,7 @@ export const useEnhancedVerification = () => {
           name: product.source,
           status: 'success',
           verified: product.verified,
-          confidence: 0.8
+          confidence: product.confidence
         }]
       });
       
@@ -51,7 +52,7 @@ export const useEnhancedVerification = () => {
 
     setLoading(true);
     try {
-      console.log('Starting internal verification for:', searchQuery);
+      console.log('Starting real-time internal verification for:', searchQuery);
       const result = await verifyProduct(searchQuery);
       console.log('Internal verification result:', result);
       
@@ -85,10 +86,10 @@ export const useEnhancedVerification = () => {
   };
 
   const handleExternalVerification = async () => {
-    if (!searchQuery.trim()) {
+    if (!searchQuery.trim() && !barcode.trim()) {
       toast({
         title: "Search Required",
-        description: "Please enter a product name to search",
+        description: "Please enter a product name or barcode to search",
         variant: "destructive"
       });
       return;
@@ -96,8 +97,12 @@ export const useEnhancedVerification = () => {
 
     setExternalLoading(true);
     try {
-      console.log('Starting external verification for:', searchQuery);
-      const result = await validateProductExternal(searchQuery, barcode || undefined);
+      console.log('Starting real-time external verification for:', { searchQuery, barcode });
+      
+      // Clear previous results
+      setExternalResult(null);
+      
+      const result = await validateProductExternal(barcode || searchQuery, searchQuery || undefined);
       console.log('External verification result:', result);
       
       setExternalResult(result);
@@ -122,6 +127,18 @@ export const useEnhancedVerification = () => {
   };
 
   const handleCombinedVerification = async () => {
+    if (!searchQuery.trim() && !barcode.trim()) {
+      toast({
+        title: "Search Required",
+        description: "Please enter a product name or barcode to search",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    console.log('Starting combined real-time verification');
+    
+    // Run both verifications in parallel for faster results
     await Promise.all([
       handleInternalVerification(),
       handleExternalVerification()
