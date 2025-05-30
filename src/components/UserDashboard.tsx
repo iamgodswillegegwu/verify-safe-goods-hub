@@ -9,14 +9,25 @@ import { useAuth } from '@/hooks/useAuth';
 import { getUserFavorites, getVerificationHistory, removeFromFavorites } from '@/services/productService';
 import { Product, Verification } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { UserSidebar } from './UserSidebar';
+import { Shield as ShieldIcon } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const UserDashboard = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [favorites, setFavorites] = useState<Product[]>([]);
   const [verificationHistory, setVerificationHistory] = useState<Verification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/login');
+    }
+  }, [user, authLoading, navigate]);
 
   useEffect(() => {
     if (user) {
@@ -80,31 +91,43 @@ const UserDashboard = () => {
     };
   };
 
-  if (isLoading) {
+  // Dynamic welcome message based on time
+  const getWelcomeMessage = () => {
+    const hour = new Date().getHours();
+    const firstName = profile?.first_name || 'Friend';
+    
+    if (hour < 12) {
+      return `Good morning, ${firstName}! ☀️`;
+    } else if (hour < 17) {
+      return `Good afternoon, ${firstName}! 🌤️`;
+    } else {
+      return `Good evening, ${firstName}! 🌙`;
+    }
+  };
+
+  if (authLoading || !user) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-slate-200 rounded w-1/3"></div>
-          <div className="grid md:grid-cols-4 gap-4">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-24 bg-slate-200 rounded"></div>
-            ))}
-          </div>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   const stats = getDashboardStats();
 
-  return (
+  const DashboardContent = () => (
     <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-800 mb-2">Dashboard</h1>
-        <p className="text-slate-600">
-          Welcome back, {profile?.first_name || user?.email}! Here's your product verification activity.
-        </p>
-      </div>
+      {/* Dynamic Welcome Message */}
+      <Card className="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+        <CardContent className="p-6">
+          <h1 className="text-3xl font-bold text-blue-800 mb-2">
+            {getWelcomeMessage()}
+          </h1>
+          <p className="text-blue-600">
+            Welcome back to your SafeGoods dashboard! Your product safety journey continues here. 💙
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Stats Overview */}
       <div className="grid md:grid-cols-4 gap-4 mb-8">
@@ -331,6 +354,34 @@ const UserDashboard = () => {
         </TabsContent>
       </Tabs>
     </div>
+  );
+
+  return (
+    <SidebarProvider collapsedWidth={56}>
+      <div className="min-h-screen flex w-full bg-gradient-to-br from-slate-50 to-blue-50">
+        <UserSidebar />
+        
+        <div className="flex-1 flex flex-col">
+          <header className="h-12 flex items-center border-b bg-white/80 backdrop-blur-sm">
+            <SidebarTrigger className="ml-2" />
+            <div className="flex items-center gap-2 ml-4">
+              <ShieldIcon className="h-6 w-6 text-blue-600" />
+              <span className="font-bold text-slate-800">SafeGoods - Dashboard</span>
+            </div>
+          </header>
+          
+          <main className="flex-1 overflow-auto">
+            {isLoading ? (
+              <div className="flex items-center justify-center h-64">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : (
+              <DashboardContent />
+            )}
+          </main>
+        </div>
+      </div>
+    </SidebarProvider>
   );
 };
 

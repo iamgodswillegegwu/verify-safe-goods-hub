@@ -1,41 +1,15 @@
 
 import { useState } from 'react';
-import { Shield, Menu, X, User, LogOut, Phone, DollarSign, HelpCircle, Briefcase } from 'lucide-react';
+import { Shield, Menu, X, Phone, DollarSign, HelpCircle, Briefcase } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/use-toast';
+import UserAvatar from './UserAvatar';
 
 const Navigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();
-  const { user, loading, signOut } = useAuth();
-  const { toast } = useToast();
-
-  const handleSignOut = async () => {
-    try {
-      const { error } = await signOut();
-      if (error) {
-        toast({
-          title: "Sign Out Failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Signed Out",
-          description: "You have been signed out successfully.",
-        });
-        navigate('/');
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred while signing out.",
-        variant: "destructive",
-      });
-    }
-  };
+  const { user, loading } = useAuth();
 
   const navItems = [
     { label: 'Home', path: '/', icon: Shield },
@@ -88,29 +62,10 @@ const Navigation = () => {
             ))}
           </div>
 
-          {/* Auth Buttons */}
+          {/* Auth Section */}
           <div className="hidden md:flex items-center space-x-3">
             {user ? (
-              <>
-                <span className="text-sm text-slate-600">
-                  Welcome, {user.email}
-                </span>
-                <Button 
-                  variant="ghost" 
-                  onClick={() => navigate('/dashboard')}
-                  className="text-slate-600 hover:text-blue-600"
-                >
-                  Dashboard
-                </Button>
-                <Button 
-                  variant="ghost"
-                  onClick={handleSignOut}
-                  className="text-slate-600 hover:text-red-600"
-                >
-                  <LogOut className="h-4 w-4 mr-1" />
-                  Logout
-                </Button>
-              </>
+              <UserAvatar />
             ) : (
               <>
                 <Button 
@@ -161,29 +116,9 @@ const Navigation = () => {
               ))}
               <div className="border-t border-blue-100 pt-3 mt-3 space-y-2">
                 {user ? (
-                  <>
-                    <Button 
-                      variant="ghost" 
-                      onClick={() => {
-                        navigate('/dashboard');
-                        setIsMenuOpen(false);
-                      }}
-                      className="w-full justify-start text-slate-600 hover:text-blue-600"
-                    >
-                      Dashboard
-                    </Button>
-                    <Button 
-                      variant="ghost"
-                      onClick={() => {
-                        handleSignOut();
-                        setIsMenuOpen(false);
-                      }}
-                      className="w-full justify-start text-slate-600 hover:text-red-600"
-                    >
-                      <LogOut className="h-4 w-4 mr-2" />
-                      Logout
-                    </Button>
-                  </>
+                  <div className="px-4">
+                    <UserAvatar />
+                  </div>
                 ) : (
                   <>
                     <Button 
