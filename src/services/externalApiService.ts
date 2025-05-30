@@ -109,23 +109,27 @@ const searchInternalDatabase = async (query: string): Promise<ExternalProduct[]>
     if (!internalProducts) return [];
 
     return internalProducts.map(product => {
-      // Handle manufacturer - it could be an object or array
+      // Handle manufacturer - check if it exists and has the expected structure
       let manufacturerName = 'Unknown';
       if (product.manufacturer) {
-        if (Array.isArray(product.manufacturer)) {
-          manufacturerName = product.manufacturer[0]?.company_name || 'Unknown';
-        } else if (typeof product.manufacturer === 'object' && 'company_name' in product.manufacturer) {
-          manufacturerName = product.manufacturer.company_name || 'Unknown';
+        if (Array.isArray(product.manufacturer) && product.manufacturer.length > 0) {
+          const mfg = product.manufacturer[0] as any;
+          manufacturerName = mfg?.company_name || 'Unknown';
+        } else {
+          const mfg = product.manufacturer as any;
+          manufacturerName = mfg?.company_name || 'Unknown';
         }
       }
 
-      // Handle category - it could be an object or array
+      // Handle category - check if it exists and has the expected structure
       let categoryName = 'Unknown';
       if (product.category) {
-        if (Array.isArray(product.category)) {
-          categoryName = product.category[0]?.name || 'Unknown';
-        } else if (typeof product.category === 'object' && 'name' in product.category) {
-          categoryName = product.category.name || 'Unknown';
+        if (Array.isArray(product.category) && product.category.length > 0) {
+          const cat = product.category[0] as any;
+          categoryName = cat?.name || 'Unknown';
+        } else {
+          const cat = product.category as any;
+          categoryName = cat?.name || 'Unknown';
         }
       }
 
@@ -287,14 +291,16 @@ export const validateProduct = async (barcode: string): Promise<ExternalProduct 
     if (internalProduct) {
       // Handle manufacturer safely
       let manufacturerName: string | undefined;
-      if (internalProduct.manufacturer && typeof internalProduct.manufacturer === 'object' && 'company_name' in internalProduct.manufacturer) {
-        manufacturerName = internalProduct.manufacturer.company_name;
+      const mfg = internalProduct.manufacturer as any;
+      if (mfg && typeof mfg === 'object' && 'company_name' in mfg) {
+        manufacturerName = mfg.company_name;
       }
 
       // Handle category safely
       let categoryName: string | undefined;
-      if (internalProduct.category && typeof internalProduct.category === 'object' && 'name' in internalProduct.category) {
-        categoryName = internalProduct.category.name;
+      const cat = internalProduct.category as any;
+      if (cat && typeof cat === 'object' && 'name' in cat) {
+        categoryName = cat.name;
       }
 
       return {
@@ -409,14 +415,16 @@ export const fetchProductDetails = async (id: string): Promise<ExternalProduct |
     if (product) {
       // Handle manufacturer safely
       let manufacturerName: string | undefined;
-      if (product.manufacturer && typeof product.manufacturer === 'object' && 'company_name' in product.manufacturer) {
-        manufacturerName = product.manufacturer.company_name;
+      const mfg = product.manufacturer as any;
+      if (mfg && typeof mfg === 'object' && 'company_name' in mfg) {
+        manufacturerName = mfg.company_name;
       }
 
       // Handle category safely
       let categoryName: string | undefined;
-      if (product.category && typeof product.category === 'object' && 'name' in product.category) {
-        categoryName = product.category.name;
+      const cat = product.category as any;
+      if (cat && typeof cat === 'object' && 'name' in cat) {
+        categoryName = cat.name;
       }
 
       return {

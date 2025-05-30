@@ -1,0 +1,27 @@
+
+version: '3.8'
+
+services:
+  safegoods-app:
+    build:
+      context: ../../
+      dockerfile: deployment/docker/Dockerfile
+    ports:
+      - "3000:80"
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - APP_NAME=${APP_NAME:-SafeGoods Verification Hub}
+      - APP_DOMAIN=${APP_DOMAIN:-localhost:3000}
+    volumes:
+      - ./config:/app/config
+    restart: unless-stopped
+    networks:
+      - safegoods-network
+
+networks:
+  safegoods-network:
+    driver: bridge
+
+volumes:
+  safegoods-data:
