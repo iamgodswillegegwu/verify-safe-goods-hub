@@ -1,92 +1,114 @@
 
-import { useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarTrigger,
-  useSidebar,
-} from '@/components/ui/sidebar';
+import { Link, useLocation } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 import {
   User,
   Settings,
-  Heart,
-  Clock,
-  Search,
-  CreditCard,
-  Bell,
   Shield,
-  Activity,
+  Heart,
   BarChart3,
-  Home
+  FileText,
+  CreditCard,
+  LogOut,
+  Menu,
+  X
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/useAuth';
+import { useState } from 'react';
 
-const menuItems = [
-  { title: 'Dashboard', url: '/dashboard', icon: Home },
-  { title: 'Search Products', url: '/', icon: Search },
-  { title: 'Profile', url: '/profile', icon: User },
-  { title: 'Favorites', url: '/favorites', icon: Heart },
-  { title: 'History', url: '/profile/history', icon: Clock },
-  { title: 'Activity', url: '/profile/activity', icon: Activity },
-  { title: 'Subscription', url: '/subscription', icon: CreditCard },
-  { title: 'Settings', url: '/profile/settings', icon: Settings },
-];
-
-export function UserSidebar() {
-  const { collapsed } = useSidebar();
+const UserSidebar = () => {
   const location = useLocation();
-  const currentPath = location.pathname;
+  const { signOut } = useAuth();
+  const [isOpen, setIsOpen] = useState(false);
 
-  const isActive = (path: string) => currentPath === path;
-  const isExpanded = menuItems.some((item) => isActive(item.url));
+  const navigation = [
+    { name: 'Profile', href: '/profile', icon: User },
+    { name: 'Dashboard', href: '/dashboard', icon: BarChart3 },
+    { name: 'Verification History', href: '/dashboard/verifications', icon: Shield },
+    { name: 'Favorites', href: '/dashboard/favorites', icon: Heart },
+    { name: 'Settings', href: '/dashboard/settings', icon: Settings },
+    { name: 'Reports', href: '/dashboard/reports', icon: FileText },
+    { name: 'Subscription', href: '/dashboard/subscription', icon: CreditCard },
+  ];
 
-  const getNavCls = ({ isActive }: { isActive: boolean }) =>
-    isActive 
-      ? "bg-blue-100 text-blue-700 font-medium border-r-2 border-blue-600" 
-      : "hover:bg-slate-100 text-slate-600";
+  const handleSignOut = async () => {
+    await signOut();
+  };
 
   return (
-    <Sidebar
-      className={collapsed ? "w-14" : "w-60"}
-      collapsible
-    >
-      <SidebarTrigger className="m-2 self-end" />
-
-      <SidebarContent>
-        <SidebarGroup
-          open={isExpanded}
-          onOpenChange={() => {}}
+    <>
+      {/* Mobile menu button */}
+      <div className="lg:hidden fixed top-20 left-4 z-40">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setIsOpen(!isOpen)}
+          className="bg-white shadow-md"
         >
-          <SidebarGroupLabel className="text-blue-600 font-semibold">
-            User Dashboard
-          </SidebarGroupLabel>
+          {isOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+        </Button>
+      </div>
 
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink 
-                      to={item.url} 
-                      end 
-                      className={({ isActive }) => getNavCls({ isActive })}
-                    >
-                      <item.icon className="mr-2 h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-    </Sidebar>
+      {/* Sidebar */}
+      <div className={cn(
+        "fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0",
+        isOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
+        <div className="flex flex-col h-full pt-20 lg:pt-5">
+          <div className="flex-1 flex flex-col min-h-0 px-4">
+            <nav className="flex-1 space-y-1">
+              {navigation.map((item) => {
+                const Icon = item.icon;
+                const isActive = location.pathname === item.href;
+                
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    onClick={() => setIsOpen(false)}
+                    className={cn(
+                      'group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors',
+                      isActive
+                        ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    )}
+                  >
+                    <Icon
+                      className={cn(
+                        'mr-3 h-5 w-5 flex-shrink-0',
+                        isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-500'
+                      )}
+                    />
+                    {item.name}
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+
+          <div className="flex-shrink-0 p-4 border-t border-gray-200">
+            <Button
+              variant="ghost"
+              onClick={handleSignOut}
+              className="w-full justify-start text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+            >
+              <LogOut className="mr-3 h-5 w-5" />
+              Sign Out
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Overlay for mobile */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 z-20 bg-black bg-opacity-50 lg:hidden"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+    </>
   );
-}
+};
+
+export default UserSidebar;

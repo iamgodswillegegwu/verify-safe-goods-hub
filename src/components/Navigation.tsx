@@ -1,148 +1,178 @@
 
 import { useState } from 'react';
-import { Shield, Menu, X, Phone, DollarSign, HelpCircle, Briefcase } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { useNavigate } from 'react-router-dom';
+import { Shield, Menu, X, User, LogOut, Settings } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import UserAvatar from './UserAvatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const Navigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { user, signOut, profile } = useAuth();
   const navigate = useNavigate();
-  const { user, loading } = useAuth();
 
-  const navItems = [
-    { label: 'Home', path: '/', icon: Shield },
-    { label: 'Our Services', path: '/services', icon: Briefcase },
-    { label: 'Pricing', path: '/subscription', icon: DollarSign },
-    { label: 'How to Use', path: '/how-to-use', icon: HelpCircle },
-    { label: 'Contact Us', path: '/contact', icon: Phone },
-  ];
-
-  if (loading) {
-    return (
-      <nav className="bg-white shadow-sm border-b border-blue-100 sticky top-0 z-50">
-        <div className="container mx-auto px-4">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-2">
-              <Shield className="h-8 w-8 text-blue-600" />
-              <span className="text-xl font-bold text-slate-800">SafeGoods</span>
-            </div>
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
-          </div>
-        </div>
-      </nav>
-    );
-  }
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
 
   return (
-    <nav className="bg-white shadow-sm border-b border-blue-100 sticky top-0 z-50">
+    <nav className="bg-white shadow-sm border-b sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <div 
-            className="flex items-center space-x-2 cursor-pointer" 
-            onClick={() => navigate('/')}
-          >
+          <Link to="/" className="flex items-center space-x-2">
             <Shield className="h-8 w-8 text-blue-600" />
             <span className="text-xl font-bold text-slate-800">SafeGoods</span>
-          </div>
+          </Link>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            {navItems.map((item) => (
-              <button
-                key={item.path}
-                onClick={() => navigate(item.path)}
-                className="text-slate-600 hover:text-blue-600 font-medium transition-colors duration-200 flex items-center gap-1"
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </button>
-            ))}
+            <Link to="/" className="text-slate-600 hover:text-blue-600 transition-colors">
+              Home
+            </Link>
+            <Link to="/verification" className="text-slate-600 hover:text-blue-600 transition-colors">
+              Verify Products
+            </Link>
+            <Link to="/products" className="text-slate-600 hover:text-blue-600 transition-colors">
+              Products
+            </Link>
+            <Link to="/about" className="text-slate-600 hover:text-blue-600 transition-colors">
+              About
+            </Link>
           </div>
 
-          {/* Auth Section */}
-          <div className="hidden md:flex items-center space-x-3">
+          {/* Desktop Auth */}
+          <div className="hidden md:flex items-center space-x-4">
             {user ? (
-              <UserAvatar />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="flex items-center space-x-2">
+                    <UserAvatar profile={profile} size="sm" />
+                    <span className="text-sm">{profile?.first_name || 'User'}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => navigate('/profile')}>
+                    <User className="h-4 w-4 mr-2" />
+                    Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/dashboard')}>
+                    <Settings className="h-4 w-4 mr-2" />
+                    Dashboard
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleSignOut}>
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
-              <>
-                <Button 
-                  variant="ghost" 
-                  onClick={() => navigate('/login')}
-                  className="text-slate-600 hover:text-blue-600"
-                >
-                  Login
-                </Button>
-                <Button 
-                  onClick={() => navigate('/signup')}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  Sign Up
-                </Button>
-              </>
+              <div className="flex items-center space-x-3">
+                <Link to="/signin">
+                  <Button variant="ghost">Sign In</Button>
+                </Link>
+                <Link to="/signup">
+                  <Button>Sign Up</Button>
+                </Link>
+              </div>
             )}
           </div>
 
-          {/* Mobile Menu Button */}
+          {/* Mobile menu button */}
           <div className="md:hidden">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
             >
-              {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
           </div>
         </div>
 
-        {/* Mobile Menu */}
+        {/* Mobile Navigation */}
         {isMenuOpen && (
-          <div className="md:hidden bg-white border-t border-blue-100 py-4">
-            <div className="space-y-3">
-              {navItems.map((item) => (
-                <button
-                  key={item.path}
-                  onClick={() => {
-                    navigate(item.path);
-                    setIsMenuOpen(false);
-                  }}
-                  className="flex items-center gap-2 w-full px-4 py-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-                >
-                  <item.icon className="h-4 w-4" />
-                  {item.label}
-                </button>
-              ))}
-              <div className="border-t border-blue-100 pt-3 mt-3 space-y-2">
-                {user ? (
-                  <div className="px-4">
-                    <UserAvatar />
+          <div className="md:hidden py-4 border-t">
+            <div className="flex flex-col space-y-4">
+              <Link 
+                to="/" 
+                className="text-slate-600 hover:text-blue-600 transition-colors px-2 py-1"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Home
+              </Link>
+              <Link 
+                to="/verification" 
+                className="text-slate-600 hover:text-blue-600 transition-colors px-2 py-1"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Verify Products
+              </Link>
+              <Link 
+                to="/products" 
+                className="text-slate-600 hover:text-blue-600 transition-colors px-2 py-1"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Products
+              </Link>
+              <Link 
+                to="/about" 
+                className="text-slate-600 hover:text-blue-600 transition-colors px-2 py-1"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                About
+              </Link>
+              
+              {user ? (
+                <div className="flex items-center space-x-3 px-2 pt-4 border-t">
+                  <UserAvatar profile={profile} size="sm" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{profile?.first_name || 'User'}</p>
+                    <div className="flex flex-col space-y-2 mt-2">
+                      <Link to="/profile" onClick={() => setIsMenuOpen(false)}>
+                        <Button variant="ghost" size="sm" className="w-full justify-start">
+                          <User className="h-4 w-4 mr-2" />
+                          Profile
+                        </Button>
+                      </Link>
+                      <Link to="/dashboard" onClick={() => setIsMenuOpen(false)}>
+                        <Button variant="ghost" size="sm" className="w-full justify-start">
+                          <Settings className="h-4 w-4 mr-2" />
+                          Dashboard
+                        </Button>
+                      </Link>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => {
+                          handleSignOut();
+                          setIsMenuOpen(false);
+                        }}
+                        className="w-full justify-start"
+                      >
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Sign Out
+                      </Button>
+                    </div>
                   </div>
-                ) : (
-                  <>
-                    <Button 
-                      variant="ghost" 
-                      onClick={() => {
-                        navigate('/login');
-                        setIsMenuOpen(false);
-                      }}
-                      className="w-full justify-start text-slate-600 hover:text-blue-600"
-                    >
-                      Login
-                    </Button>
-                    <Button 
-                      onClick={() => {
-                        navigate('/signup');
-                        setIsMenuOpen(false);
-                      }}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      Sign Up
-                    </Button>
-                  </>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="flex flex-col space-y-2 px-2 pt-4 border-t">
+                  <Link to="/signin" onClick={() => setIsMenuOpen(false)}>
+                    <Button variant="ghost" className="w-full">Sign In</Button>
+                  </Link>
+                  <Link to="/signup" onClick={() => setIsMenuOpen(false)}>
+                    <Button className="w-full">Sign Up</Button>
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         )}

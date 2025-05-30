@@ -24,24 +24,57 @@ const ExternalValidationDialog = ({
   const [validationResult, setValidationResult] = useState<any>(null);
 
   useEffect(() => {
-    if (isOpen && barcode) {
+    if (isOpen && (barcode || productName)) {
       performValidation();
     }
-  }, [isOpen, barcode]);
+  }, [isOpen, barcode, productName]);
 
   const performValidation = async () => {
     setLoading(true);
     try {
+      const searchTerm = barcode || productName;
+      console.log('Performing enhanced validation for:', searchTerm);
+      
       const result = await getEnhancedValidation({
-        barcode,
-        productName
+        barcode: barcode || '',
+        productName: productName || '',
+        category: detectCategory(productName)
       });
+      
+      console.log('Enhanced validation result:', result);
       setValidationResult(result);
     } catch (error) {
       console.error('Validation failed:', error);
+      // Provide fallback result even on error
+      setValidationResult({
+        isValid: false,
+        confidence: 0.1,
+        sources: [{
+          name: 'SYSTEM',
+          status: 'error',
+          verified: false,
+          confidence: 0
+        }],
+        recommendations: ['Unable to validate product due to a system error.']
+      });
     } finally {
       setLoading(false);
     }
+  };
+
+  const detectCategory = (name: string = ''): string | undefined => {
+    const lowerName = name.toLowerCase();
+    
+    if (lowerName.includes('cream') || lowerName.includes('lotion') || 
+        lowerName.includes('skin') || lowerName.includes('face')) {
+      return 'Cosmetics';
+    } else if (lowerName.includes('vitamin') || lowerName.includes('supplement')) {
+      return 'Supplements';
+    } else if (lowerName.includes('food') || lowerName.includes('drink')) {
+      return 'Food Products';
+    }
+    
+    return undefined;
   };
 
   const getStatusIcon = (verified: boolean, confidence: number) => {
@@ -59,21 +92,26 @@ const ExternalValidationDialog = ({
         <DialogHeader>
           <DialogTitle>External Validation</DialogTitle>
           <DialogDescription>
-            Validating "{productName}" against external databases
+            Validating "{productName || barcode}" against external databases
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           {loading ? (
             <div className="text-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-              <p className="text-sm text-gray-600">Validating product...</p>
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
+              <p className="text-sm text-gray-600">
+                Validating product across multiple data sources...
+              </p>
+              <p className="text-xs text-gray-500 mt-2">
+                This may take a few moments
+              </p>
             </div>
           ) : validationResult ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="font-medium">Overall Status</span>
-                <Badge variant={validationResult.isValid ? "default" : "destructive"}>
+                <Badge variant={validationResult.isValid ? "default" : "destructive"} className={validationResult.isValid ? "bg-green-600" : ""}>
                   {validationResult.isValid ? "Valid" : "Invalid"}
                 </Badge>
               </div>
@@ -85,7 +123,13 @@ const ExternalValidationDialog = ({
                     {Math.round(validationResult.confidence * 100)}%
                   </span>
                 </div>
-                <Progress value={validationResult.confidence * 100} className="h-2" />
+                <Progress 
+                  value={validationResult.confidence * 100} 
+                  className={`h-2 ${
+                    validationResult.confidence > 0.8 ? 'bg-green-100' : 
+                    validationResult.confidence > 0.5 ? 'bg-yellow-100' : 'bg-red-100'
+                  }`}
+                />
               </div>
 
               <div className="space-y-3">
@@ -96,7 +140,11 @@ const ExternalValidationDialog = ({
                       {getStatusIcon(source.verified, source.confidence)}
                       <span className="text-sm">{source.name}</span>
                     </div>
-                    <Badge variant="outline">
+                    <Badge variant="outline" className={
+                      source.verified ? 
+                        (source.confidence > 0.8 ? "bg-green-50 text-green-700" : "bg-yellow-50 text-yellow-700") : 
+                        "bg-red-50 text-red-700"
+                    }>
                       {Math.round(source.confidence * 100)}%
                     </Badge>
                   </div>
@@ -118,7 +166,7 @@ const ExternalValidationDialog = ({
               )}
 
               {validationResult.product && (
-                <div className="space-y-2">
+                <div className="space-y-2 bg-gray-50 p-4 rounded-md">
                   <h4 className="font-medium">Product Details</h4>
                   <div className="text-sm space-y-1">
                     <p><strong>Name:</strong> {validationResult.product.name}</p>
@@ -127,6 +175,19 @@ const ExternalValidationDialog = ({
                     )}
                     {validationResult.product.category && (
                       <p><strong>Category:</strong> {validationResult.product.category}</p>
+                    )}
+                    {validationResult.product.nutriScore && (
+                      <p>
+                        <strong>Nutri-Score:</strong> 
+                        <Badge className="ml-2" variant={
+                          validationResult.product.nutriScore === 'A' ? 'default' :
+                          validationResult.product.nutriScore === 'B' ? 'secondary' :
+                          validationResult.product.nutriScore === 'C' ? 'outline' :
+                          validationResult.product.nutriScore === 'D' ? 'destructive' : 'destructive'
+                        }>
+                          {validationResult.product.nutriScore}
+                        </Badge>
+                      </p>
                     )}
                   </div>
                 </div>
@@ -143,7 +204,7 @@ const ExternalValidationDialog = ({
               Close
             </Button>
             {!loading && (
-              <Button onClick={performValidation} className="flex-1">
+              <Button onClick={performValidation} className="flex-1 bg-blue-600 hover:bg-blue-700">
                 Revalidate
               </Button>
             )}

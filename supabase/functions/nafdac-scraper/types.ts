@@ -1,27 +1,28 @@
 
-export interface NAFDACProduct {
-  id: string;
-  name: string;
-  manufacturer: string;
-  category: string;
-  registrationNumber: string;
-  registrationDate: string;
-  expiryDate?: string;
-  status: string;
-  verified: boolean;
-  source: 'nafdac';
-}
-
 export interface NAFDACSearchRequest {
   searchQuery: string;
   limit?: number;
+  filters?: Record<string, any>;
 }
 
 export interface NAFDACResponse {
   found: boolean;
   verified: boolean;
   confidence: number;
-  source: 'nafdac';
+  source: string;
   products: NAFDACProduct[];
-  alternatives: any[];
+  alternatives: NAFDACProduct[];
+}
+
+export interface NAFDACProduct {
+  id: string;
+  name: string;
+  manufacturer: string;
+  registrationNumber: string;
+  registrationDate: string;
+  category: string;
+  status: string;
+  verified: boolean;
+  source: string;
+  imageUrl?: string;
 }
