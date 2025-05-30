@@ -1,4 +1,3 @@
-
 import { supabase } from '@/lib/supabase';
 
 export interface ExternalProduct {
@@ -109,21 +108,39 @@ const searchInternalDatabase = async (query: string): Promise<ExternalProduct[]>
 
     if (!internalProducts) return [];
 
-    return internalProducts.map(product => ({
-      id: product.id,
-      name: product.name,
-      brand: Array.isArray(product.manufacturer) 
-        ? product.manufacturer[0]?.company_name || 'Unknown'
-        : product.manufacturer?.company_name || 'Unknown',
-      category: Array.isArray(product.category)
-        ? product.category[0]?.name || 'Unknown'
-        : product.category?.name || 'Unknown',
-      description: product.description,
-      verified: true,
-      confidence: 0.95,
-      source: 'internal' as APISource,
-      barcode: product.batch_number
-    }));
+    return internalProducts.map(product => {
+      // Handle manufacturer - it could be an object or array
+      let manufacturerName = 'Unknown';
+      if (product.manufacturer) {
+        if (Array.isArray(product.manufacturer)) {
+          manufacturerName = product.manufacturer[0]?.company_name || 'Unknown';
+        } else if (typeof product.manufacturer === 'object' && 'company_name' in product.manufacturer) {
+          manufacturerName = product.manufacturer.company_name || 'Unknown';
+        }
+      }
+
+      // Handle category - it could be an object or array
+      let categoryName = 'Unknown';
+      if (product.category) {
+        if (Array.isArray(product.category)) {
+          categoryName = product.category[0]?.name || 'Unknown';
+        } else if (typeof product.category === 'object' && 'name' in product.category) {
+          categoryName = product.category.name || 'Unknown';
+        }
+      }
+
+      return {
+        id: product.id,
+        name: product.name,
+        brand: manufacturerName,
+        category: categoryName,
+        description: product.description,
+        verified: true,
+        confidence: 0.95,
+        source: 'internal' as APISource,
+        barcode: product.batch_number
+      };
+    });
   } catch (error) {
     console.error('Internal database search error:', error);
     return [];
@@ -268,11 +285,23 @@ export const validateProduct = async (barcode: string): Promise<ExternalProduct 
       .single();
 
     if (internalProduct) {
+      // Handle manufacturer safely
+      let manufacturerName: string | undefined;
+      if (internalProduct.manufacturer && typeof internalProduct.manufacturer === 'object' && 'company_name' in internalProduct.manufacturer) {
+        manufacturerName = internalProduct.manufacturer.company_name;
+      }
+
+      // Handle category safely
+      let categoryName: string | undefined;
+      if (internalProduct.category && typeof internalProduct.category === 'object' && 'name' in internalProduct.category) {
+        categoryName = internalProduct.category.name;
+      }
+
       return {
         id: internalProduct.id,
         name: internalProduct.name,
-        brand: internalProduct.manufacturer?.company_name || 'Unknown',
-        category: internalProduct.category?.name || 'Unknown',
+        brand: manufacturerName,
+        category: categoryName,
         description: internalProduct.description,
         barcode: barcode,
         verified: internalProduct.status === 'approved',
@@ -378,11 +407,23 @@ export const fetchProductDetails = async (id: string): Promise<ExternalProduct |
       .single();
 
     if (product) {
+      // Handle manufacturer safely
+      let manufacturerName: string | undefined;
+      if (product.manufacturer && typeof product.manufacturer === 'object' && 'company_name' in product.manufacturer) {
+        manufacturerName = product.manufacturer.company_name;
+      }
+
+      // Handle category safely
+      let categoryName: string | undefined;
+      if (product.category && typeof product.category === 'object' && 'name' in product.category) {
+        categoryName = product.category.name;
+      }
+
       return {
         id: product.id,
         name: product.name,
-        brand: product.manufacturer?.company_name,
-        category: product.category?.name,
+        brand: manufacturerName,
+        category: categoryName,
         description: product.description,
         verified: product.status === 'approved',
         confidence: 0.95,
