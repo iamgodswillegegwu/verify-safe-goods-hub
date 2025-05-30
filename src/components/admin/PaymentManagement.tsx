@@ -1,15 +1,14 @@
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { DollarSign, CreditCard, Users, TrendingUp } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { CreditCard, DollarSign, Users, TrendingUp, Search, Filter } from 'lucide-react';
 
 interface PaymentTransaction {
   id: string;
@@ -17,8 +16,10 @@ interface PaymentTransaction {
   amount: number;
   currency: string;
   status: string;
-  description: string;
+  description?: string;
+  stripe_session_id?: string;
   created_at: string;
+  updated_at: string;
   profiles?: {
     first_name: string;
     last_name: string;
@@ -28,13 +29,17 @@ interface PaymentTransaction {
 
 interface Subscriber {
   id: string;
+  user_id: string;
   email: string;
   status: string;
+  stripe_customer_id?: string;
+  stripe_subscription_id?: string;
+  subscription_plan_id?: string;
+  current_period_start?: string;
+  current_period_end?: string;
+  cancel_at_period_end: boolean;
   created_at: string;
-  subscription_plans?: {
-    name: string;
-    price: number;
-  };
+  updated_at: string;
   profiles?: {
     first_name: string;
     last_name: string;
@@ -44,13 +49,14 @@ interface Subscriber {
 const PaymentManagement = () => {
   const [transactions, setTransactions] = useState<PaymentTransaction[]>([]);
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
-  const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [stats, setStats] = useState({
     totalRevenue: 0,
-    totalSubscribers: 0,
     activeSubscribers: 0,
-    monthlyRevenue: 0,
+    totalTransactions: 0,
+    successRate: 0
   });
   const { toast } = useToast();
 
@@ -59,61 +65,66 @@ const PaymentManagement = () => {
   }, []);
 
   const fetchData = async () => {
-    setLoading(true);
     try {
+      setLoading(true);
+      
       // Fetch transactions
-      const { data: transactionsData, error: transactionsError } = await supabase
+      const { data: transactionData, error: transactionError } = await supabase
         .from('payment_transactions')
         .select(`
           *,
-          profiles (first_name, last_name, email)
-        `)
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (transactionsError) throw transactionsError;
-      setTransactions(transactionsData || []);
-
-      // Fetch subscribers
-      const { data: subscribersData, error: subscribersError } = await supabase
-        .from('subscribers')
-        .select(`
-          *,
-          subscription_plans (name, price),
-          profiles (first_name, last_name)
+          profiles:user_id(first_name, last_name, email)
         `)
         .order('created_at', { ascending: false });
 
-      if (subscribersError) throw subscribersError;
-      setSubscribers(subscribersData || []);
+      if (transactionError) {
+        console.error('Error fetching transactions:', transactionError);
+      } else {
+        // Transform the data to handle the join structure
+        const transformedTransactions = transactionData?.map(t => ({
+          ...t,
+          profiles: Array.isArray(t.profiles) ? t.profiles[0] : t.profiles
+        })) || [];
+        setTransactions(transformedTransactions);
+      }
 
-      // Fetch subscription plans
-      const { data: plansData, error: plansError } = await supabase
-        .from('subscription_plans')
-        .select('*')
-        .order('price', { ascending: true });
+      // Fetch subscribers
+      const { data: subscriberData, error: subscriberError } = await supabase
+        .from('subscribers')
+        .select(`
+          *,
+          profiles:user_id(first_name, last_name)
+        `)
+        .order('created_at', { ascending: false });
 
-      if (plansError) throw plansError;
-      setPlans(plansData || []);
+      if (subscriberError) {
+        console.error('Error fetching subscribers:', subscriberError);
+      } else {
+        // Transform the data to handle the join structure
+        const transformedSubscribers = subscriberData?.map(s => ({
+          ...s,
+          profiles: Array.isArray(s.profiles) ? s.profiles[0] : s.profiles
+        })) || [];
+        setSubscribers(transformedSubscribers);
+      }
 
       // Calculate stats
-      const totalRevenue = transactionsData?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
-      const totalSubscribers = subscribersData?.length || 0;
-      const activeSubscribers = subscribersData?.filter(s => s.status === 'active').length || 0;
-      
-      const currentMonth = new Date().getMonth();
-      const currentYear = new Date().getFullYear();
-      const monthlyRevenue = transactionsData?.filter(t => {
-        const tDate = new Date(t.created_at);
-        return tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear;
-      }).reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+      if (transactionData && subscriberData) {
+        const totalRevenue = transactionData
+          .filter(t => t.status === 'completed')
+          .reduce((sum, t) => sum + (t.amount || 0), 0);
+        
+        const activeSubscribers = subscriberData.filter(s => s.status === 'active').length;
+        const successfulTransactions = transactionData.filter(t => t.status === 'completed').length;
+        const successRate = transactionData.length > 0 ? (successfulTransactions / transactionData.length) * 100 : 0;
 
-      setStats({
-        totalRevenue: totalRevenue / 100, // Convert from cents to dollars
-        totalSubscribers,
-        activeSubscribers,
-        monthlyRevenue: monthlyRevenue / 100, // Convert from cents to dollars
-      });
+        setStats({
+          totalRevenue: totalRevenue / 100, // Convert from cents
+          activeSubscribers,
+          totalTransactions: transactionData.length,
+          successRate
+        });
+      }
 
     } catch (error) {
       console.error('Error fetching payment data:', error);
@@ -127,224 +138,272 @@ const PaymentManagement = () => {
     }
   };
 
-  const updatePlan = async (planId: string, updates: any) => {
-    try {
-      const { error } = await supabase
-        .from('subscription_plans')
-        .update(updates)
-        .eq('id', planId);
+  const filteredTransactions = transactions.filter(transaction => {
+    const matchesSearch = 
+      transaction.profiles?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      transaction.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      transaction.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'all' || transaction.status === statusFilter;
+    
+    return matchesSearch && matchesStatus;
+  });
 
-      if (error) throw error;
+  const filteredSubscribers = subscribers.filter(subscriber => {
+    const matchesSearch = 
+      subscriber.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      `${subscriber.profiles?.first_name || ''} ${subscriber.profiles?.last_name || ''}`.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'all' || subscriber.status === statusFilter;
+    
+    return matchesSearch && matchesStatus;
+  });
 
-      toast({
-        title: "Success",
-        description: "Plan updated successfully",
-      });
-      fetchData();
-    } catch (error) {
-      console.error('Error updating plan:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update plan",
-        variant: "destructive",
-      });
-    }
+  const formatAmount = (amount: number, currency: string = 'usd') => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency.toUpperCase(),
+    }).format(amount / 100);
   };
 
-  const getStatusBadge = (status: string) => {
-    const colors = {
-      active: 'bg-green-100 text-green-800',
-      inactive: 'bg-gray-100 text-gray-800',
-      canceled: 'bg-red-100 text-red-800',
-      succeeded: 'bg-green-100 text-green-800',
-      pending: 'bg-yellow-100 text-yellow-800',
-      failed: 'bg-red-100 text-red-800',
-    };
-
-    return (
-      <Badge className={colors[status] || 'bg-gray-100 text-gray-800'}>
-        {status}
-      </Badge>
-    );
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'completed':
+      case 'active':
+        return 'default';
+      case 'pending':
+        return 'secondary';
+      case 'failed':
+      case 'cancelled':
+        return 'destructive';
+      default:
+        return 'outline';
+    }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <CreditCard className="h-6 w-6" />
+            Payment Management
+          </h2>
+          <p className="text-gray-600 mt-2">Loading payment data...</p>
+        </div>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <CreditCard className="h-6 w-6" />
+          Payment Management
+        </h2>
+        <p className="text-gray-600 mt-2">Monitor transactions, subscriptions, and revenue</p>
+      </div>
+
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${stats.totalRevenue.toFixed(2)}</div>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Revenue</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  ${stats.totalRevenue.toFixed(2)}
+                </p>
+              </div>
+              <DollarSign className="h-8 w-8 text-green-600" />
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${stats.monthlyRevenue.toFixed(2)}</div>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Active Subscribers</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.activeSubscribers}</p>
+              </div>
+              <Users className="h-8 w-8 text-blue-600" />
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Subscribers</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalSubscribers}</div>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Transactions</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalTransactions}</p>
+              </div>
+              <CreditCard className="h-8 w-8 text-purple-600" />
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Subscribers</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.activeSubscribers}</div>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Success Rate</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.successRate.toFixed(1)}%</p>
+              </div>
+              <TrendingUp className="h-8 w-8 text-orange-600" />
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Subscription Plans Management */}
+      {/* Filters */}
       <Card>
-        <CardHeader>
-          <CardTitle>Subscription Plans</CardTitle>
-          <CardDescription>Manage your subscription plans and pricing</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {plans.map((plan) => (
-              <div key={plan.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <h3 className="font-medium">{plan.name}</h3>
-                  <p className="text-sm text-gray-500">
-                    ${plan.price}/month • {plan.scan_limit || 'Unlimited'} scans
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    step="0.01"
-                    defaultValue={plan.price}
-                    className="w-24"
-                    onBlur={(e) => updatePlan(plan.id, { price: parseFloat(e.target.value) })}
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => updatePlan(plan.id, { is_active: !plan.is_active })}
-                  >
-                    {plan.is_active ? 'Disable' : 'Enable'}
-                  </Button>
-                </div>
+        <CardContent className="p-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Search by email, transaction ID, or description..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
               </div>
-            ))}
+            </div>
+            <div className="flex gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-40">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="failed">Failed</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button onClick={fetchData}>
+                Refresh
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Recent Transactions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Transactions</CardTitle>
-          <CardDescription>Latest payment transactions</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Customer</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Date</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {transactions.map((transaction) => (
-                <TableRow key={transaction.id}>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium">
-                        {transaction.profiles?.first_name} {transaction.profiles?.last_name}
-                      </div>
-                      <div className="text-sm text-gray-500">{transaction.profiles?.email}</div>
-                    </div>
-                  </TableCell>
-                  <TableCell>${(transaction.amount / 100).toFixed(2)}</TableCell>
-                  <TableCell>{getStatusBadge(transaction.status)}</TableCell>
-                  <TableCell>{transaction.description}</TableCell>
-                  <TableCell>
-                    {new Date(transaction.created_at).toLocaleDateString()}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      {/* Tabs for Transactions and Subscribers */}
+      <Tabs defaultValue="transactions" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="transactions">Transactions</TabsTrigger>
+          <TabsTrigger value="subscribers">Subscribers</TabsTrigger>
+        </TabsList>
 
-      {/* Subscribers List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Subscribers</CardTitle>
-          <CardDescription>Manage customer subscriptions</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Customer</TableHead>
-                <TableHead>Plan</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Joined</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {subscribers.map((subscriber) => (
-                <TableRow key={subscriber.id}>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium">
-                        {subscriber.profiles?.first_name} {subscriber.profiles?.last_name}
+        <TabsContent value="transactions">
+          <Card>
+            <CardHeader>
+              <CardTitle>Payment Transactions ({filteredTransactions.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {filteredTransactions.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No transactions found matching your criteria
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {filteredTransactions.map((transaction) => (
+                    <div key={transaction.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <CreditCard className="h-5 w-5 text-gray-400" />
+                            <div>
+                              <p className="font-medium text-gray-900">
+                                {formatAmount(transaction.amount, transaction.currency)}
+                              </p>
+                              <p className="text-sm text-gray-500">
+                                {transaction.profiles?.email || 'Unknown user'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4 text-sm text-gray-500 ml-8">
+                            <span>ID: {transaction.id.slice(0, 8)}...</span>
+                            <span>{new Date(transaction.created_at).toLocaleDateString()}</span>
+                            {transaction.description && (
+                              <span>{transaction.description}</span>
+                            )}
+                          </div>
+                        </div>
+                        <Badge variant={getStatusBadgeVariant(transaction.status)}>
+                          {transaction.status.toUpperCase()}
+                        </Badge>
                       </div>
-                      <div className="text-sm text-gray-500">{subscriber.email}</div>
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    {subscriber.subscription_plans?.name} 
-                    {subscriber.subscription_plans?.price > 0 && (
-                      <span className="text-sm text-gray-500">
-                        (${subscriber.subscription_plans.price}/month)
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell>{getStatusBadge(subscriber.status)}</TableCell>
-                  <TableCell>
-                    {new Date(subscriber.created_at).toLocaleDateString()}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="subscribers">
+          <Card>
+            <CardHeader>
+              <CardTitle>Subscribers ({filteredSubscribers.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {filteredSubscribers.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No subscribers found matching your criteria
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {filteredSubscribers.map((subscriber) => (
+                    <div key={subscriber.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <Users className="h-5 w-5 text-gray-400" />
+                            <div>
+                              <p className="font-medium text-gray-900">
+                                {subscriber.profiles?.first_name && subscriber.profiles?.last_name
+                                  ? `${subscriber.profiles.first_name} ${subscriber.profiles.last_name}`
+                                  : 'Unknown user'}
+                              </p>
+                              <p className="text-sm text-gray-500">{subscriber.email}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4 text-sm text-gray-500 ml-8">
+                            <span>Started: {new Date(subscriber.created_at).toLocaleDateString()}</span>
+                            {subscriber.current_period_end && (
+                              <span>
+                                Expires: {new Date(subscriber.current_period_end).toLocaleDateString()}
+                              </span>
+                            )}
+                            {subscriber.cancel_at_period_end && (
+                              <span className="text-orange-600">Cancelling at period end</span>
+                            )}
+                          </div>
+                        </div>
+                        <Badge variant={getStatusBadgeVariant(subscriber.status)}>
+                          {subscriber.status.toUpperCase()}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

@@ -14,9 +14,14 @@ export interface Profile {
   first_name?: string;
   last_name?: string;
   phone?: string;
-  role: 'consumer' | 'manufacturer' | 'admin';
+  role: 'consumer' | 'manufacturer' | 'admin' | 'super_admin' | 'test_user';
   created_at: string;
   updated_at: string;
+  bio?: string;
+  location?: string;
+  date_of_birth?: string;
+  profile_picture_url?: string;
+  preferences?: any;
 }
 
 export interface Manufacturer {

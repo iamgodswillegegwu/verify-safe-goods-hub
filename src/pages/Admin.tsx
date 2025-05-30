@@ -1,63 +1,111 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
-import { AdminSidebar } from '@/components/AdminSidebar';
+import { Navigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import AdminSidebar from '@/components/AdminSidebar';
 import Overview from '@/components/admin/Overview';
 import UserManagement from '@/components/admin/UserManagement';
 import ProductManagement from '@/components/admin/ProductManagement';
 import PaymentManagement from '@/components/admin/PaymentManagement';
-import { Shield } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { Routes, Route } from 'react-router-dom';
+import APIIntegrations from '@/components/admin/APIIntegrations';
 
 const Admin = () => {
-  const { user, profile, loading } = useAuth();
-  const navigate = useNavigate();
+  const { profile, loading } = useAuth();
+  const [activeSection, setActiveSection] = useState('overview');
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    totalProducts: 0,
+    totalManufacturers: 0,
+    totalVerifications: 0,
+    pendingProducts: 0,
+    recentActivity: []
+  });
+  const { toast } = useToast();
 
   useEffect(() => {
-    if (!loading && (!user || !profile || profile.role !== 'admin')) {
-      navigate('/');
+    if (profile) {
+      fetchStats();
     }
-  }, [user, profile, loading, navigate]);
+  }, [profile]);
+
+  const fetchStats = async () => {
+    try {
+      // Fetch all stats in parallel
+      const [
+        { count: usersCount },
+        { count: productsCount },
+        { count: manufacturersCount },
+        { count: verificationsCount },
+        { count: pendingCount },
+        { data: activityData }
+      ] = await Promise.all([
+        supabase.from('profiles').select('*', { count: 'exact', head: true }),
+        supabase.from('products').select('*', { count: 'exact', head: true }),
+        supabase.from('manufacturers').select('*', { count: 'exact', head: true }),
+        supabase.from('verifications').select('*', { count: 'exact', head: true }),
+        supabase.from('products').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('user_activity_logs').select('*').order('created_at', { ascending: false }).limit(10)
+      ]);
+
+      setStats({
+        totalUsers: usersCount || 0,
+        totalProducts: productsCount || 0,
+        totalManufacturers: manufacturersCount || 0,
+        totalVerifications: verificationsCount || 0,
+        pendingProducts: pendingCount || 0,
+        recentActivity: activityData || []
+      });
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch dashboard statistics",
+        variant: "destructive"
+      });
+    }
+  };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
-  if (!user || !profile || profile.role !== 'admin') {
-    return null;
+  if (!profile || (profile.role !== 'admin' && profile.role !== 'super_admin')) {
+    return <Navigate to="/dashboard" replace />;
   }
 
+  const renderContent = () => {
+    switch (activeSection) {
+      case 'overview':
+        return <Overview stats={stats} onSectionChange={setActiveSection} />;
+      case 'users':
+        return <UserManagement />;
+      case 'products':
+        return <ProductManagement />;
+      case 'payments':
+        return <PaymentManagement />;
+      case 'api-integrations':
+        return <APIIntegrations />;
+      default:
+        return <Overview stats={stats} onSectionChange={setActiveSection} />;
+    }
+  };
+
   return (
-    <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-gradient-to-br from-slate-50 to-blue-50">
-        <AdminSidebar />
-        
-        <div className="flex-1 flex flex-col">
-          <header className="h-12 flex items-center border-b bg-white/80 backdrop-blur-sm">
-            <SidebarTrigger className="ml-2" />
-            <div className="flex items-center gap-2 ml-4">
-              <Shield className="h-6 w-6 text-blue-600" />
-              <span className="font-bold text-slate-800">SafeGoods - Admin Dashboard</span>
-            </div>
-          </header>
-          
-          <main className="flex-1 overflow-auto">
-            <Routes>
-              <Route path="/" element={<Overview />} />
-              <Route path="/users" element={<UserManagement />} />
-              <Route path="/products" element={<ProductManagement />} />
-              <Route path="/payments" element={<PaymentManagement />} />
-            </Routes>
-          </main>
-        </div>
-      </div>
-    </SidebarProvider>
+    <div className="min-h-screen bg-gray-50 flex">
+      <AdminSidebar 
+        activeSection={activeSection} 
+        onSectionChange={setActiveSection} 
+      />
+      <main className="flex-1 p-8">
+        {renderContent()}
+      </main>
+    </div>
   );
 };
 

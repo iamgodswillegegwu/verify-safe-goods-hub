@@ -286,7 +286,7 @@ const EnhancedProductVerification = () => {
       {/* External Validation Dialog */}
       <ExternalValidationDialog
         open={showExternalDialog}
-        onClose={() => setShowExternalDialog(false)}
+        onOpenChange={setShowExternalDialog}
         productName={searchQuery}
         barcode={barcode}
       />
