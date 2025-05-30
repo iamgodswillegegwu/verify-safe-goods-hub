@@ -9,6 +9,7 @@ import APIIntegrations from '@/components/admin/APIIntegrations';
 import Overview from '@/components/admin/Overview';
 import UserManagement from '@/components/admin/UserManagement';
 import ProductManagement from '@/components/admin/ProductManagement';
+import SystemSettings from '@/components/admin/SystemSettings';
 
 const SuperAdmin = () => {
   const { user, loading } = useAuth();
@@ -51,6 +52,8 @@ const SuperAdmin = () => {
         return <UserManagement />;
       case 'products':
         return <ProductManagement />;
+      case 'system-settings':
+        return <SystemSettings />;
       default:
         return <Overview stats={stats} onSectionChange={setActiveSection} />;
     }
