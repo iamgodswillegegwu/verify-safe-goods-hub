@@ -24,43 +24,50 @@ const ProductScanner = ({ onResult }) => {
   const startCamera = async () => {
     try {
       setError('');
+      setHasPermission(null);
       console.log('Requesting camera access...');
       
-      // Request camera with better constraints
+      // Simpler constraints that work on more devices
       const constraints = {
         video: {
           facingMode: 'environment', // Use back camera on mobile
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
+          width: { ideal: 640 },
+          height: { ideal: 480 }
         }
       };
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       console.log('Camera stream obtained:', stream);
       
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+      if (videoRef.current && stream) {
         streamRef.current = stream;
+        videoRef.current.srcObject = stream;
         
-        // Wait for video to load and then play
+        // Set up event handlers before attempting to play
         videoRef.current.onloadedmetadata = () => {
-          console.log('Video metadata loaded');
-          videoRef.current.play().then(() => {
-            console.log('Video started playing');
-            setHasPermission(true);
-          }).catch((playError) => {
-            console.error('Error playing video:', playError);
-            setError('Failed to start video playback');
-            setHasPermission(false);
-          });
+          console.log('Video metadata loaded, attempting to play...');
+          if (videoRef.current) {
+            videoRef.current.play()
+              .then(() => {
+                console.log('Video playing successfully');
+                setHasPermission(true);
+              })
+              .catch((playError) => {
+                console.error('Error playing video:', playError);
+                setError('Failed to start video playback');
+                setHasPermission(false);
+              });
+          }
         };
 
-        // Handle video errors
         videoRef.current.onerror = (videoError) => {
           console.error('Video error:', videoError);
           setError('Video playback error');
           setHasPermission(false);
         };
+
+        // Try to load the video
+        videoRef.current.load();
       }
       
     } catch (error) {
@@ -92,6 +99,8 @@ const ProductScanner = ({ onResult }) => {
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
+    
+    setHasPermission(null);
   };
 
   const captureImage = () => {
@@ -125,7 +134,7 @@ const ProductScanner = ({ onResult }) => {
       <CardContent className="p-6">
         <div className="text-center space-y-4">
           {/* Initial state - ready to start */}
-          {hasPermission === null && !isScanning && (
+          {!isScanning && (
             <div>
               <Camera className="h-16 w-16 mx-auto text-blue-400 mb-4" />
               <p className="text-slate-600">Click to start scanning products</p>
@@ -148,34 +157,42 @@ const ProductScanner = ({ onResult }) => {
           )}
 
           {/* Permission denied or error */}
-          {(hasPermission === false || error) && (
+          {error && (
             <div>
               <Camera className="h-16 w-16 mx-auto text-red-400 mb-4" />
-              <p className="text-red-600 mb-2">{error || 'Camera access failed'}</p>
+              <p className="text-red-600 mb-2">{error}</p>
               <p className="text-sm text-slate-500 mb-4">
                 Please ensure your browser has camera permissions enabled
               </p>
-              <Button 
-                onClick={handleStartScanning}
-                variant="outline"
-                className="border-blue-200 text-blue-600 hover:bg-blue-50"
-              >
-                Try Again
-              </Button>
+              <div className="flex gap-2 justify-center">
+                <Button 
+                  onClick={handleStartScanning}
+                  variant="outline"
+                  className="border-blue-200 text-blue-600 hover:bg-blue-50"
+                >
+                  Try Again
+                </Button>
+                <Button 
+                  onClick={() => setIsScanning(false)}
+                  variant="outline"
+                  className="border-red-200 text-red-600 hover:bg-red-50"
+                >
+                  Cancel
+                </Button>
+              </div>
             </div>
           )}
 
           {/* Camera active and working */}
-          {hasPermission === true && (
+          {isScanning && hasPermission === true && !error && (
             <div className="space-y-4">
-              <div className="relative bg-black rounded-lg overflow-hidden" style={{ aspectRatio: '4/3' }}>
+              <div className="relative bg-black rounded-lg overflow-hidden" style={{ aspectRatio: '4/3', maxWidth: '100%', margin: '0 auto' }}>
                 <video
                   ref={videoRef}
                   autoPlay
                   playsInline
                   muted
                   className="w-full h-full object-cover"
-                  style={{ transform: 'scaleX(-1)' }} // Mirror effect for better UX
                 />
                 
                 {/* Scanning overlay with corner brackets */}
@@ -196,7 +213,7 @@ const ProductScanner = ({ onResult }) => {
 
                 {/* Instructions overlay */}
                 <div className="absolute bottom-4 left-4 right-4">
-                  <div className="bg-black bg-opacity-70 text-white text-sm p-2 rounded">
+                  <div className="bg-black bg-opacity-70 text-white text-sm p-2 rounded text-center">
                     Position product within the scanning area
                   </div>
                 </div>
