@@ -1,110 +1,80 @@
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { Navigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import Navigation from '@/components/Navigation';
 import AdminSidebar from '@/components/AdminSidebar';
+import AuthenticationSettings from '@/components/admin/AuthenticationSettings';
+import APIIntegrations from '@/components/admin/APIIntegrations';
 import Overview from '@/components/admin/Overview';
 import UserManagement from '@/components/admin/UserManagement';
 import ProductManagement from '@/components/admin/ProductManagement';
-import PaymentManagement from '@/components/admin/PaymentManagement';
-import APIIntegrations from '@/components/admin/APIIntegrations';
 
 const Admin = () => {
-  const { profile, loading } = useAuth();
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState('overview');
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    totalProducts: 0,
-    totalManufacturers: 0,
-    totalVerifications: 0,
-    pendingProducts: 0,
-    recentActivity: []
+  const [stats] = useState({
+    totalUsers: 5642,
+    totalProducts: 8934,
+    verifiedProducts: 7123,
+    pendingApprovals: 156,
+    activeManufacturers: 89,
+    dailyScans: 1542
   });
-  const { toast } = useToast();
+
+  console.log('Admin page rendering, activeSection:', activeSection);
 
   useEffect(() => {
-    if (profile) {
-      fetchStats();
+    if (!loading && !user) {
+      navigate('/login');
     }
-  }, [profile]);
-
-  const fetchStats = async () => {
-    try {
-      // Fetch all stats in parallel
-      const [
-        { count: usersCount },
-        { count: productsCount },
-        { count: manufacturersCount },
-        { count: verificationsCount },
-        { count: pendingCount },
-        { data: activityData }
-      ] = await Promise.all([
-        supabase.from('profiles').select('*', { count: 'exact', head: true }),
-        supabase.from('products').select('*', { count: 'exact', head: true }),
-        supabase.from('manufacturers').select('*', { count: 'exact', head: true }),
-        supabase.from('verifications').select('*', { count: 'exact', head: true }),
-        supabase.from('products').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-        supabase.from('user_activity_logs').select('*').order('created_at', { ascending: false }).limit(10)
-      ]);
-
-      setStats({
-        totalUsers: usersCount || 0,
-        totalProducts: productsCount || 0,
-        totalManufacturers: manufacturersCount || 0,
-        totalVerifications: verificationsCount || 0,
-        pendingProducts: pendingCount || 0,
-        recentActivity: activityData || []
-      });
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch dashboard statistics",
-        variant: "destructive"
-      });
-    }
-  };
+  }, [user, loading, navigate]);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
-  if (!profile || (profile.role !== 'admin' && profile.role !== 'super_admin')) {
-    return <Navigate to="/dashboard" replace />;
+  if (!user) {
+    return null;
   }
 
   const renderContent = () => {
+    console.log('Rendering content for section:', activeSection);
     switch (activeSection) {
-      case 'overview':
-        return <Overview stats={stats} onSectionChange={setActiveSection} />;
+      case 'auth-settings':
+        return <AuthenticationSettings />;
+      case 'api-integrations':
+        return <APIIntegrations />;
       case 'users':
         return <UserManagement />;
       case 'products':
         return <ProductManagement />;
-      case 'payments':
-        return <PaymentManagement />;
-      case 'api-integrations':
-        return <APIIntegrations />;
       default:
         return <Overview stats={stats} onSectionChange={setActiveSection} />;
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <AdminSidebar 
-        activeSection={activeSection} 
-        onSectionChange={setActiveSection} 
-      />
-      <main className="flex-1 p-8">
-        {renderContent()}
-      </main>
+    <div className="min-h-screen bg-gray-50">
+      <Navigation />
+      
+      <div className="flex h-[calc(100vh-64px)] w-full">
+        <AdminSidebar 
+          activeSection={activeSection} 
+          onSectionChange={setActiveSection} 
+        />
+        
+        <main className="flex-1 overflow-y-auto p-6 bg-gray-50">
+          <div className="max-w-7xl mx-auto">
+            {renderContent()}
+          </div>
+        </main>
+      </div>
     </div>
   );
 };

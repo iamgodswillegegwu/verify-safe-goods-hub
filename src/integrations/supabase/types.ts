@@ -161,42 +161,6 @@ export type Database = {
           },
         ]
       }
-      payment_transactions: {
-        Row: {
-          amount: number
-          created_at: string
-          currency: string
-          description: string | null
-          id: string
-          status: string
-          stripe_session_id: string | null
-          updated_at: string
-          user_id: string | null
-        }
-        Insert: {
-          amount: number
-          created_at?: string
-          currency?: string
-          description?: string | null
-          id?: string
-          status: string
-          stripe_session_id?: string | null
-          updated_at?: string
-          user_id?: string | null
-        }
-        Update: {
-          amount?: number
-          created_at?: string
-          currency?: string
-          description?: string | null
-          id?: string
-          status?: string
-          stripe_session_id?: string | null
-          updated_at?: string
-          user_id?: string | null
-        }
-        Relationships: []
-      }
       product_reports: {
         Row: {
           created_at: string | null
@@ -377,65 +341,11 @@ export type Database = {
         }
         Relationships: []
       }
-      subscribers: {
-        Row: {
-          cancel_at_period_end: boolean | null
-          created_at: string
-          current_period_end: string | null
-          current_period_start: string | null
-          email: string
-          id: string
-          status: string
-          stripe_customer_id: string | null
-          stripe_subscription_id: string | null
-          subscription_plan_id: string | null
-          updated_at: string
-          user_id: string | null
-        }
-        Insert: {
-          cancel_at_period_end?: boolean | null
-          created_at?: string
-          current_period_end?: string | null
-          current_period_start?: string | null
-          email: string
-          id?: string
-          status?: string
-          stripe_customer_id?: string | null
-          stripe_subscription_id?: string | null
-          subscription_plan_id?: string | null
-          updated_at?: string
-          user_id?: string | null
-        }
-        Update: {
-          cancel_at_period_end?: boolean | null
-          created_at?: string
-          current_period_end?: string | null
-          current_period_start?: string | null
-          email?: string
-          id?: string
-          status?: string
-          stripe_customer_id?: string | null
-          stripe_subscription_id?: string | null
-          subscription_plan_id?: string | null
-          updated_at?: string
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "subscribers_subscription_plan_id_fkey"
-            columns: ["subscription_plan_id"]
-            isOneToOne: false
-            referencedRelation: "subscription_plans"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       subscription_plans: {
         Row: {
           created_at: string | null
           features: string[]
           id: string
-          is_active: boolean
           name: string
           price: number
           scan_limit: number | null
@@ -444,7 +354,6 @@ export type Database = {
           created_at?: string | null
           features: string[]
           id?: string
-          is_active?: boolean
           name: string
           price: number
           scan_limit?: number | null
@@ -453,7 +362,6 @@ export type Database = {
           created_at?: string | null
           features?: string[]
           id?: string
-          is_active?: boolean
           name?: string
           price?: number
           scan_limit?: number | null

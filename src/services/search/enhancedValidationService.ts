@@ -1,79 +1,63 @@
 
 import { ExternalProduct, validateProductExternal, ValidationResult } from '../externalApiService';
 
-export interface EnhancedValidation {
-  overallRisk: 'low' | 'medium' | 'high';
-  riskFactors: string[];
-  recommendations: string[];
-  sources: ValidationResult[];
+export interface EnhancedValidationRequest {
+  barcode: string;
+  productName?: string;
+  category?: string;
+}
+
+export interface EnhancedValidationResponse {
+  isValid: boolean;
   confidence: number;
+  sources: Array<{
+    name: string;
+    status: 'success' | 'error' | 'pending';
+    verified: boolean;
+    confidence: number;
+  }>;
+  product?: ExternalProduct;
+  recommendations?: string[];
 }
 
 export const getEnhancedValidation = async (
-  productName: string,
-  barcode?: string
-): Promise<EnhancedValidation> => {
+  request: EnhancedValidationRequest
+): Promise<EnhancedValidationResponse> => {
   try {
-    console.log('Starting enhanced validation for:', productName);
+    console.log('Getting enhanced validation for:', request);
 
-    // Get validation from multiple external sources
-    const validation = await validateProductExternal(productName, barcode);
-    
-    // Analyze risk factors based on validation results
-    const riskFactors: string[] = [];
+    // Validate using external services
+    const externalResult = await validateProductExternal(request.barcode);
+
+    // Add recommendations based on confidence level
     const recommendations: string[] = [];
-    
-    if (!validation.found) {
-      riskFactors.push('Product not found in external databases');
-      recommendations.push('Verify product details with manufacturer directly');
+    if (externalResult.confidence < 0.7) {
+      recommendations.push('Consider additional verification from manufacturer');
+      recommendations.push('Check product expiry date and batch number');
     }
-    
-    if (validation.verified === false) {
-      riskFactors.push('Product verification failed in external sources');
-      recommendations.push('Exercise caution and seek alternative verified products');
+    if (!externalResult.isValid) {
+      recommendations.push('Product may be counterfeit - exercise caution');
     }
-    
-    if (validation.confidence < 0.7) {
-      riskFactors.push('Low confidence in product data');
-      recommendations.push('Cross-check product information from multiple sources');
-    }
-
-    // Determine overall risk level
-    let overallRisk: 'low' | 'medium' | 'high' = 'low';
-    
-    if (riskFactors.length === 0 && validation.verified) {
-      overallRisk = 'low';
-    } else if (riskFactors.length <= 2 && validation.found) {
-      overallRisk = 'medium';
-    } else {
-      overallRisk = 'high';
-    }
-
-    // Add general recommendations
-    if (overallRisk === 'low') {
-      recommendations.push('Product appears safe based on available data');
-    }
-    
-    recommendations.push('Always check expiration dates and storage instructions');
-    recommendations.push('Report any adverse reactions to relevant authorities');
 
     return {
-      overallRisk,
-      riskFactors,
-      recommendations,
-      sources: [validation],
-      confidence: validation.confidence
+      isValid: externalResult.isValid,
+      confidence: externalResult.confidence,
+      sources: externalResult.sources,
+      product: externalResult.product,
+      recommendations
     };
-
   } catch (error) {
     console.error('Enhanced validation error:', error);
-    
     return {
-      overallRisk: 'high',
-      riskFactors: ['Unable to validate product due to system error'],
-      recommendations: ['Manual verification recommended', 'Contact manufacturer directly'],
-      sources: [],
-      confidence: 0
+      isValid: false,
+      confidence: 0,
+      sources: [{
+        name: 'System',
+        status: 'error',
+        verified: false,
+        confidence: 0
+      }],
+      recommendations: ['Unable to validate product - please try again later']
     };
   }
 };

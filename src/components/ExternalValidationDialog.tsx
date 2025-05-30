@@ -1,23 +1,11 @@
 
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { 
-  Globe, 
-  Search, 
-  ExternalLink, 
-  CheckCircle, 
-  AlertTriangle, 
-  XCircle,
-  Loader2
-} from 'lucide-react';
-import { validateProductExternal, ValidationResult } from '@/services/externalApiService';
-import { useToast } from '@/hooks/use-toast';
+import { Progress } from '@/components/ui/progress';
+import { CheckCircle, XCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import { getEnhancedValidation } from '@/services/search/enhancedValidationService';
 
 interface ExternalValidationDialogProps {
   open: boolean;
@@ -26,208 +14,125 @@ interface ExternalValidationDialogProps {
   barcode: string;
 }
 
-const ExternalValidationDialog = ({ open, onOpenChange, productName, barcode }: ExternalValidationDialogProps) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchBarcode, setSearchBarcode] = useState('');
-  const [validationResults, setValidationResults] = useState<ValidationResult[]>([]);
+const ExternalValidationDialog = ({ 
+  open, 
+  onOpenChange, 
+  productName, 
+  barcode 
+}: ExternalValidationDialogProps) => {
   const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
+  const [validationResult, setValidationResult] = useState<any>(null);
 
   useEffect(() => {
-    setSearchQuery(productName);
-    setSearchBarcode(barcode);
-  }, [productName, barcode]);
-
-  const handleValidation = async () => {
-    if (!searchQuery.trim()) {
-      toast({
-        title: "Search Required",
-        description: "Please enter a product name to search",
-        variant: "destructive"
-      });
-      return;
+    if (open && barcode) {
+      performValidation();
     }
+  }, [open, barcode]);
 
+  const performValidation = async () => {
     setLoading(true);
     try {
-      console.log('Starting external validation for:', searchQuery);
-      const result = await validateProductExternal(searchQuery, searchBarcode || undefined);
-      console.log('External validation result:', result);
-      
-      setValidationResults([result]);
-
-      toast({
-        title: "Validation Complete",
-        description: result.found ? 
-          `Found in external databases with ${Math.round(result.confidence * 100)}% confidence` :
-          "Product not found in external databases",
+      const result = await getEnhancedValidation({
+        barcode,
+        productName
       });
-
+      setValidationResult(result);
     } catch (error) {
-      console.error('External validation error:', error);
-      toast({
-        title: "Validation Error",
-        description: "Failed to validate product externally",
-        variant: "destructive"
-      });
+      console.error('Validation failed:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const getStatusIcon = (result: ValidationResult) => {
-    if (!result.found) return <XCircle className="h-5 w-5 text-red-500" />;
-    if (result.verified) return <CheckCircle className="h-5 w-5 text-green-500" />;
-    return <AlertTriangle className="h-5 w-5 text-orange-500" />;
-  };
-
-  const getStatusColor = (result: ValidationResult) => {
-    if (!result.found) return 'border-red-200 bg-red-50';
-    if (result.verified) return 'border-green-200 bg-green-50';
-    return 'border-orange-200 bg-orange-50';
+  const getStatusIcon = (verified: boolean, confidence: number) => {
+    if (verified && confidence > 0.8) {
+      return <CheckCircle className="h-5 w-5 text-green-600" />;
+    } else if (verified && confidence > 0.6) {
+      return <AlertTriangle className="h-5 w-5 text-yellow-600" />;
+    }
+    return <XCircle className="h-5 w-5 text-red-600" />;
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Globe className="h-6 w-6 text-blue-600" />
-            Advanced External Validation
-          </DialogTitle>
+          <DialogTitle>External Validation</DialogTitle>
+          <DialogDescription>
+            Validating "{productName}" against external databases
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Search Form */}
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="ext_search">Product Name</Label>
-              <Input
-                id="ext_search"
-                placeholder="Enter product name..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="mt-1"
-              />
+        <div className="space-y-4">
+          {loading ? (
+            <div className="text-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+              <p className="text-sm text-gray-600">Validating product...</p>
             </div>
-            <div>
-              <Label htmlFor="ext_barcode">Barcode (Optional)</Label>
-              <Input
-                id="ext_barcode"
-                placeholder="Enter barcode..."
-                value={searchBarcode}
-                onChange={(e) => setSearchBarcode(e.target.value)}
-                className="mt-1"
-              />
-            </div>
-            <Button 
-              onClick={handleValidation}
-              disabled={loading || !searchQuery.trim()}
-              className="w-full"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Validating...
-                </>
-              ) : (
-                <>
-                  <Search className="h-4 w-4 mr-2" />
-                  Validate Product
-                </>
-              )}
-            </Button>
-          </div>
-
-          {/* Results Section */}
-          {validationResults.length > 0 && (
+          ) : validationResult ? (
             <div className="space-y-4">
-              <Separator />
-              <h4 className="font-semibold text-gray-900">Validation Results</h4>
-              
-              {validationResults.map((result, index) => (
-                <Card key={index} className={`border-2 ${getStatusColor(result)}`}>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {getStatusIcon(result)}
-                        <span className="font-medium">
-                          {result.found ? 
-                            (result.verified ? 'Verified Product' : 'Product Found - Issues Detected') :
-                            'Product Not Found'
-                          }
-                        </span>
-                      </div>
-                      <Badge variant="outline" className="text-xs">
-                        {Math.round(result.confidence * 100)}% confidence
-                      </Badge>
+              <div className="flex items-center justify-between">
+                <span className="font-medium">Overall Status</span>
+                <Badge variant={validationResult.isValid ? "default" : "destructive"}>
+                  {validationResult.isValid ? "Valid" : "Invalid"}
+                </Badge>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm">Confidence Score</span>
+                  <span className="text-sm font-medium">
+                    {Math.round(validationResult.confidence * 100)}%
+                  </span>
+                </div>
+                <Progress value={validationResult.confidence * 100} className="h-2" />
+              </div>
+
+              <div className="space-y-3">
+                <h4 className="font-medium">Validation Sources</h4>
+                {validationResult.sources.map((source: any, index: number) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {getStatusIcon(source.verified, source.confidence)}
+                      <span className="text-sm">{source.name}</span>
                     </div>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    {result.product ? (
-                      <div className="space-y-3">
-                        <div>
-                          <p className="font-medium">{result.product.name}</p>
-                          {result.product.brand && (
-                            <p className="text-sm text-gray-600">Brand: {result.product.brand}</p>
-                          )}
-                        </div>
-                        
-                        <div className="flex flex-wrap gap-2">
-                          <Badge variant="outline" className="text-xs">
-                            Source: {result.source.toUpperCase()}
-                          </Badge>
-                          <Badge variant="outline" className="text-xs">
-                            Category: {result.product.category}
-                          </Badge>
-                          {result.product.nutriScore && (
-                            <Badge variant="outline" className="text-xs">
-                              Nutri-Score: {result.product.nutriScore}
-                            </Badge>
-                          )}
-                        </div>
+                    <Badge variant="outline">
+                      {Math.round(source.confidence * 100)}%
+                    </Badge>
+                  </div>
+                ))}
+              </div>
 
-                        {result.product.ingredients && (
-                          <div className="text-sm">
-                            <strong>Ingredients:</strong>
-                            <p className="text-gray-600 mt-1 line-clamp-3">
-                              {result.product.ingredients}
-                            </p>
-                          </div>
-                        )}
-
-                        {result.alternatives && result.alternatives.length > 0 && (
-                          <div className="text-sm">
-                            <strong>Alternative Products:</strong>
-                            <ul className="mt-1 space-y-1">
-                              {result.alternatives.slice(0, 3).map((alt, altIndex) => (
-                                <li key={altIndex} className="text-gray-600 flex items-center gap-2">
-                                  <ExternalLink className="h-3 w-3" />
-                                  {alt.name}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-gray-600">
-                        No external data available for this product. This could mean:
-                      </p>
-                    )}
-                    
-                    {!result.found && (
-                      <ul className="text-sm text-gray-600 mt-2 space-y-1">
-                        <li>• Product is not registered in external databases</li>
-                        <li>• Product name or barcode might be incorrect</li>
-                        <li>• Product might be new or locally distributed</li>
-                      </ul>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
+              {validationResult.recommendations && (
+                <div className="space-y-2">
+                  <h4 className="font-medium">Recommendations</h4>
+                  <ul className="text-sm text-gray-600 space-y-1">
+                    {validationResult.recommendations.map((rec: string, index: number) => (
+                      <li key={index} className="flex items-start gap-2">
+                        <span className="text-blue-600">•</span>
+                        {rec}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
-          )}
+          ) : null}
+
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="flex-1"
+            >
+              Close
+            </Button>
+            {!loading && (
+              <Button onClick={performValidation} className="flex-1">
+                Revalidate
+              </Button>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
