@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Search, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -5,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import AutoSuggestSearch from './AutoSuggestSearch';
 import ProductScanner from './ProductScanner';
 import SearchFilters from './SearchFilters';
-import EnhancedProductDisplay from './EnhancedProductDisplay';
+import VerificationResult from './VerificationResult';
 import AdvancedSearchInterface from './AdvancedSearchInterface';
 
 interface ProductVerificationSectionProps {
@@ -142,17 +143,7 @@ const ProductVerificationSection = ({
                 {/* Enhanced Verification Result Display */}
                 {verificationResult && (
                   <div className="mt-6">
-                    <EnhancedProductDisplay 
-                      productName={verificationResult.productName}
-                      isVerified={verificationResult.isVerified}
-                      manufacturer={verificationResult.manufacturer}
-                      registrationDate={verificationResult.registrationDate}
-                      certificationNumber={verificationResult.certificationNumber}
-                      product={verificationResult.product}
-                      externalData={verificationResult.externalData}
-                      searchFilters={verificationResult.searchFilters}
-                      similarProducts={verificationResult.similarProducts || []}
-                    />
+                    <VerificationResult result={verificationResult} />
                   </div>
                 )}
               </CardContent>
