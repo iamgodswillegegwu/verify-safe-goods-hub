@@ -73,15 +73,31 @@ export const useAuth = () => {
   const signUp = async (email: string, password: string, userData: any) => {
     setLoading(true);
     try {
+      console.log('Starting signup process for:', email);
+      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: userData,
+          data: {
+            first_name: userData.first_name,
+            last_name: userData.last_name,
+            phone: userData.phone
+          },
           emailRedirectTo: `${window.location.origin}/dashboard`
         }
       });
-      return { data, error };
+
+      if (error) {
+        console.error('Signup error:', error);
+        return { data, error };
+      }
+
+      console.log('Signup successful:', data);
+      return { data, error: null };
+    } catch (error) {
+      console.error('Unexpected signup error:', error);
+      return { data: null, error: { message: 'An unexpected error occurred during signup' } };
     } finally {
       setLoading(false);
     }

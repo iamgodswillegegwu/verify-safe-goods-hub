@@ -64,26 +64,46 @@ const Signup = () => {
     setIsLoading(true);
     
     try {
-      const { error } = await signUp(formData.email, formData.password, {
+      console.log('Submitting signup form for:', formData.email);
+      
+      const { data, error } = await signUp(formData.email, formData.password, {
         first_name: formData.firstName,
         last_name: formData.lastName,
         phone: formData.phone
       });
       
       if (error) {
+        console.error('Signup failed:', error);
+        
+        // Provide more specific error messages
+        let errorMessage = error.message;
+        if (error.message.includes('already registered')) {
+          errorMessage = 'An account with this email already exists. Please try signing in instead.';
+        } else if (error.message.includes('database error')) {
+          errorMessage = 'There was a problem setting up your account. Please try again in a moment.';
+        } else if (error.message.includes('invalid email')) {
+          errorMessage = 'Please enter a valid email address.';
+        }
+        
         toast({
           title: "Sign Up Failed",
-          description: error.message,
+          description: errorMessage,
           variant: "destructive",
         });
       } else {
+        console.log('Signup successful for:', formData.email);
         toast({
-          title: "Account Created!",
-          description: "Please check your email to verify your account.",
+          title: "Account Created Successfully!",
+          description: "Welcome to SafeGoods! You can now start verifying products.",
         });
-        navigate('/dashboard');
+        
+        // Wait a moment for the auth state to update, then navigate
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 1000);
       }
     } catch (error) {
+      console.error('Unexpected signup error:', error);
       toast({
         title: "Error",
         description: "An unexpected error occurred. Please try again.",
